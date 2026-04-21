@@ -161,6 +161,12 @@ const FileText = (p) => (
     {...p}
   />
 );
+const Copy = (p) => (
+  <I
+    d="M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-9a2 2 0 00-2-2zM5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
+    {...p}
+  />
+);
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -224,6 +230,15 @@ export default function App() {
       ...p,
       items: p.items.length > 1 ? p.items.filter((i) => i.id !== id) : p.items,
     }));
+  const duplicateItem = (id) =>
+    setS((p) => {
+      const idx = p.items.findIndex((i) => i.id === id);
+      if (idx === -1) return p;
+      const clone = { ...p.items[idx], id: uid() };
+      const items = [...p.items];
+      items.splice(idx + 1, 0, clone);
+      return { ...p, items };
+    });
   const addDrawing = () =>
     setS((p) => ({ ...p, drawings: [...p.drawings, emptyDrawing()] }));
   const removeDrawing = (id) =>
@@ -312,20 +327,36 @@ export default function App() {
     setExporting(true);
     try {
       const html2pdf = await loadHtml2Pdf();
+      const el = printRef.current;
+      // Temporarily make visible for html2canvas to capture
+      el.style.position = "absolute";
+      el.style.left = "0";
+      el.style.top = "0";
+      el.style.zIndex = "-1";
+      el.style.opacity = "1";
       await html2pdf()
         .set({
           margin: [6, 6, 6, 6],
           filename: `Quote-${s.quoteNumber}.pdf`,
           image: { type: "jpeg", quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+          html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
           pagebreak: { mode: ["avoid-all", "css", "legacy"] },
         })
-        .from(printRef.current)
+        .from(el)
         .save();
+      // Hide it again
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      el.style.zIndex = "";
       flash("PDF exported!");
     } catch (e) {
       console.error(e);
+      // Reset position even on error
+      if (printRef.current) {
+        printRef.current.style.position = "fixed";
+        printRef.current.style.left = "-9999px";
+      }
       flash("Export failed");
     }
     setExporting(false);
@@ -517,7 +548,20 @@ export default function App() {
           <button className="nv-btn" onClick={newQuote}><Plus size={13} /> New</button>
           <button className="nv-btn" onClick={saveQuote}><SaveIcon size={13} /> Save</button>
           <button className="nv-btn" onClick={() => setPanel(panel === "saved" ? null : "saved")}><Folder size={13} /> Load</button>
-          <button className="nv-btn" onClick={() => window.print()}><Printer size={13} /> Print</button>
+          <button className="nv-btn" onClick={() => {
+            const el = printRef.current;
+            el.style.position = "absolute";
+            el.style.left = "0";
+            el.style.top = "0";
+            el.style.zIndex = "9999";
+            el.style.opacity = "1";
+            setTimeout(() => {
+              window.print();
+              el.style.position = "fixed";
+              el.style.left = "-9999px";
+              el.style.zIndex = "";
+            }, 100);
+          }}><Printer size={13} /> Print</button>
           <button className="nv-btn nv-btn-red" onClick={exportPDF} disabled={exporting}>
             <Download size={13} /> {exporting ? "Exporting…" : "Export PDF"}
           </button>
@@ -890,8 +934,8 @@ export default function App() {
               style={{
                 display: "grid",
                 gridTemplateColumns: s.showPrices
-                  ? "32px 52px 100px 44px 46px 1fr 90px 90px 32px"
-                  : "32px 52px 120px 50px 50px 1fr 32px",
+                  ? "32px 52px 100px 44px 46px 1fr 90px 90px 56px"
+                  : "32px 52px 120px 50px 50px 1fr 56px",
                 gap: 0, background: "#C8102E", color: "#FFF",
                 fontSize: 9, fontWeight: 800, textTransform: "uppercase",
                 letterSpacing: "0.06em",
@@ -920,8 +964,8 @@ export default function App() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: s.showPrices
-                    ? "32px 52px 100px 44px 46px 1fr 90px 90px 32px"
-                    : "32px 52px 120px 50px 50px 1fr 32px",
+                    ? "32px 52px 100px 44px 46px 1fr 90px 90px 56px"
+                    : "32px 52px 120px 50px 50px 1fr 56px",
                   gap: 0, alignItems: "center",
                   borderBottom: "1px solid #F0F0F0",
                   background: idx % 2 === 0 ? "#FFF" : "#FAFAFA",
@@ -1070,17 +1114,34 @@ export default function App() {
                   </div>
                 )}
 
-                <button
-                  onClick={() => removeItem(item.id)}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    color: "#D4D4D4", padding: 4, transition: "color 0.15s",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "#C8102E"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "#D4D4D4"; }}
-                >
-                  <Trash size={13} />
-                </button>
+                <div style={{ display: "flex", gap: 2, alignItems: "center", justifyContent: "center" }}>
+                  <button
+                    onClick={() => duplicateItem(item.id)}
+                    title="Duplicate item"
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "#D4D4D4", padding: 3, transition: "color 0.15s",
+                      borderRadius: 3,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#2D2D2D"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "#D4D4D4"; }}
+                  >
+                    <Copy size={12} />
+                  </button>
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    title="Delete item"
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "#D4D4D4", padding: 3, transition: "color 0.15s",
+                      borderRadius: 3,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#C8102E"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "#D4D4D4"; }}
+                  >
+                    <Trash size={12} />
+                  </button>
+                </div>
               </div>
             ))}
 
