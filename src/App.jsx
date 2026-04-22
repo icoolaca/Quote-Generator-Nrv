@@ -13,7 +13,9 @@ const emptyDrawing = () => ({ id: uid(), image: null, title: "", totalPrice: 0, 
 const emptyPin = (xPct, yPct) => ({ id: uid(), xPct, yPct, main: "Spec Title", sub: "Details here" });
 
 const DF = { header: 28, subheader: 14, body: 12, small: 10 };
-const DC = { img: 15, itemNo: 12, qty: 6, uom: 6, desc: 30, netPrice: 10, extAmt: 10 };
+const DC = { img: 15, itemNo: 12, qty: 6, uom: 6, desc: 30, netPrice: 10, extAmt: 12.9 };
+// Only img, itemNo, desc are user-adjustable; rest are fixed
+const FIXED_COLS = { qty: 6, uom: 6, netPrice: 10, extAmt: 12.9 };
 
 const DEFAULT = {
   quoteNumber: "34130", date: today(), shipDate: "", currency: "CAD",
@@ -223,7 +225,20 @@ export default function App() {
   };
   const doPrint = () => { const el = printRef.current; el.style.position = "absolute"; el.style.left = "0"; el.style.top = "0"; el.style.zIndex = "9999"; el.style.opacity = "1"; setTimeout(() => { window.print(); el.style.position = "fixed"; el.style.left = "-9999px"; el.style.zIndex = ""; }, 100); };
 
-  const gridCols = useMemo(() => `3% ${C.img}% ${C.itemNo}% ${C.qty}% ${C.uom}% ${C.desc}%` + (s.showPrices ? ` ${C.netPrice}% ${C.extAmt}%` : '') + ' 5%', [C, s.showPrices]);
+  // Adjustable: img, itemNo, desc — these 3 share the "flexible" portion
+  // Fixed: LN(3%), qty, uom, netPrice, extAmt, actions(5%)
+  const gridCols = useMemo(() => {
+    const fc = FIXED_COLS;
+    const fixedTotal = 3 + fc.qty + fc.uom + (s.showPrices ? fc.netPrice + fc.extAmt : 0) + 5;
+    const flexTotal = 100 - fixedTotal;
+    // User ratios for the 3 adjustable columns
+    const rawImg = C.img, rawItemNo = C.itemNo, rawDesc = C.desc;
+    const rawSum = rawImg + rawItemNo + rawDesc;
+    const img = (rawImg / rawSum) * flexTotal;
+    const itemNo = (rawItemNo / rawSum) * flexTotal;
+    const desc = (rawDesc / rawSum) * flexTotal;
+    return `3% ${img.toFixed(1)}% ${itemNo.toFixed(1)}% ${fc.qty}% ${fc.uom}% ${desc.toFixed(1)}%` + (s.showPrices ? ` ${fc.netPrice}% ${fc.extAmt}%` : '') + ' 5%';
+  }, [C, s.showPrices]);
   const colDefs = useMemo(() => { const b = [{ k: 'img', l: 'Img' }, { k: 'itemNo', l: 'Item No' }, { k: 'qty', l: 'Qty' }, { k: 'uom', l: 'UOM' }, { k: 'desc', l: 'Description' }]; if (s.showPrices) { b.push({ k: 'netPrice', l: 'Net Price' }, { k: 'extAmt', l: 'Ext Amt' }); } return b; }, [s.showPrices]);
 
   const handleResizeStart = (ck, e) => {
@@ -277,16 +292,19 @@ export default function App() {
         .nv-table-scroll::-webkit-scrollbar-track{background:#F0F0F0;border-radius:3px}
         .nv-table-scroll::-webkit-scrollbar-thumb{background:#CCC;border-radius:3px}
         .nv-table-scroll::-webkit-scrollbar-thumb:hover{background:#999}
-        /* Mobile: stack items as cards */
+        /* Mobile: stack items as labeled cards */
         @media(max-width:768px){
           .nv-resp-2{grid-template-columns:1fr!important}
           .nv-resp-5{grid-template-columns:1fr 1fr!important}
           .nv-topbar-actions{flex-wrap:wrap;justify-content:center}
-          .nv-mobile-card{display:flex!important;flex-direction:column!important;padding:12px!important;gap:8px!important;grid-template-columns:unset!important}
-          .nv-mobile-card>*{width:100%!important;min-width:0!important}
           .nv-desk-header{display:none!important}
+          .nv-mobile-card{display:flex!important;flex-direction:column!important;padding:12px!important;gap:0!important;grid-template-columns:unset!important;border-left:3px solid #C8102E!important}
+          .nv-mobile-card>*{width:100%!important;min-width:0!important}
+          .nv-mob-label{display:flex!important}
+          .nv-mob-field{display:grid!important;grid-template-columns:80px 1fr!important;align-items:center!important;gap:6px!important;padding:4px 0!important}
+          .nv-mob-field-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#C8102E}
         }
-        @media(min-width:769px){.nv-mob-only{display:none!important}}
+        @media(min-width:769px){.nv-mob-label{display:none!important}}
         @media print{.no-print{display:none!important}body{background:#fff!important}}
       `}</style>
 
@@ -320,10 +338,9 @@ export default function App() {
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10 }}>Font Sizes</div>
           <FS label="Header" path="header" min={18} max={42} /><FS label="Subheader" path="subheader" min={10} max={22} /><FS label="Body" path="body" min={9} max={18} /><FS label="Small" path="small" min={7} max={14} />
           <button className="nv-btn" style={{ marginBottom: 20, fontSize: 10 }} onClick={() => set("fonts", { ...DF })}>Reset Fonts</button>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 10 }}>Column Widths (%)</div>
-          <p style={{ fontSize: 10, color: "#999", marginBottom: 10 }}>Drag header dividers or use sliders. Table scrolls horizontally if columns exceed width.</p>
-          <CS label="Image" path="img" min={5} max={30} /><CS label="Item No" path="itemNo" min={5} max={25} /><CS label="Qty" path="qty" min={3} max={15} /><CS label="UOM" path="uom" min={3} max={15} /><CS label="Description" path="desc" min={10} max={50} />
-          {s.showPrices && <><CS label="Net Price" path="netPrice" min={5} max={20} /><CS label="Ext Amt" path="extAmt" min={5} max={20} /></>}
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 10 }}>Column Widths (ratio)</div>
+          <p style={{ fontSize: 10, color: "#999", marginBottom: 10 }}>Adjust Image, Item No, and Description proportions. They auto-scale to fill available space. Other columns are fixed.</p>
+          <CS label="Image" path="img" min={5} max={40} /><CS label="Item No" path="itemNo" min={5} max={30} /><CS label="Description" path="desc" min={10} max={60} />
           <button className="nv-btn" style={{ fontSize: 10 }} onClick={() => set("cols", { ...DC })}>Reset Columns</button>
         </div>
       )}
@@ -382,7 +399,10 @@ export default function App() {
                 {/* Header */}
                 <div className="nv-desk-header" style={{ display: "grid", gridTemplateColumns: gridCols, background: "#C8102E", color: "#FFF", fontSize: Math.max(8, F.small - 1), fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", position: "sticky", top: 0, zIndex: 2 }}>
                   <div className="nv-hdr-cell" style={{ padding: "8px 4px", textAlign: "center" }}>LN</div>
-                  {colDefs.map(c => <div key={c.k} className="nv-hdr-cell" style={{ padding: "8px 6px", textAlign: c.k === 'netPrice' || c.k === 'extAmt' ? 'right' : 'left' }}>{c.l}<div className={`col-resizer ${resizing === c.k ? 'active' : ''}`} onMouseDown={e => handleResizeStart(c.k, e)} /></div>)}
+                  {colDefs.map(c => {
+                    const isAdjustable = c.k === 'img' || c.k === 'itemNo' || c.k === 'desc';
+                    return <div key={c.k} className="nv-hdr-cell" style={{ padding: "8px 6px", textAlign: c.k === 'netPrice' || c.k === 'extAmt' ? 'right' : 'left' }}>{c.l}{isAdjustable && <div className={`col-resizer ${resizing === c.k ? 'active' : ''}`} onMouseDown={e => handleResizeStart(c.k, e)} />}</div>;
+                  })}
                   <div className="nv-hdr-cell" style={{ borderRight: "none" }}></div>
                 </div>
                 {/* Rows */}
@@ -390,22 +410,30 @@ export default function App() {
                   const hasImg = !!item.image;
                   return (
                     <div key={item.id} className="nv-row nv-mobile-card" style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: "1px solid #F0F0F0", background: idx % 2 === 0 ? "#FFF" : "#FAFAFA", alignItems: "stretch" }}>
-                      {/* Mobile label helper */}
-                      <div style={{ padding: "8px 4px", textAlign: "center", fontSize: F.body, color: "#BBB", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{idx + 1}</div>
+                      {/* LN */}
+                      <div style={{ padding: "8px 4px", textAlign: "center", fontSize: F.body, color: "#BBB", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}><span className="nv-mob-label" style={{ color: "#C8102E", fontSize: 9, fontWeight: 800, marginRight: 4 }}>#</span>{idx + 1}</div>
                       {/* Image */}
-                      <div style={{ padding: 4, display: "flex", alignItems: "flex-start" }} tabIndex={0} onPaste={handlePaste("item", item.id, "image")}>
+                      <div style={{ padding: 4 }} tabIndex={0} onPaste={handlePaste("item", item.id, "image")}>
+                        <div className="nv-mob-label" style={{ marginBottom: 3 }}><span className="nv-mob-field-label" style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Image</span></div>
                         <div className="nv-drop" onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")} onDrop={e => { e.currentTarget.classList.remove("over"); handleDrop(e, "item", item.id, "image"); }} onClick={() => fileRefs.current[item.id]?.click()}
                           style={{ width: "100%", minHeight: hasImg ? 80 : 36, borderRadius: 4, overflow: "hidden", border: hasImg ? "1px solid #E5E5E5" : "1.5px dashed #D4D4D4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: hasImg ? "#FAFAFA" : "#F9F9F9" }}>
                           {hasImg ? <div style={{ position: "relative", width: "100%" }}><img src={item.image} alt="" style={{ width: "100%", objectFit: "contain", display: "block" }} /><button onClick={e => { e.stopPropagation(); updateItem(item.id, "image", null); }} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(0,0,0,.6)", color: "#FFF", border: "none", cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button></div> : <div style={{ textAlign: "center", color: "#D4D4D4", padding: 2 }}><Pic size={12} /><div style={{ fontSize: 7 }}>Paste</div></div>}
                           <input ref={el => { fileRefs.current[item.id] = el; }} type="file" accept="image/*" hidden onChange={e => handleFile("item", item.id, "image", e.target.files[0])} />
                         </div>
                       </div>
-                      <div style={{ padding: "6px", display: "flex", alignItems: "flex-start" }}><input value={item.itemNo} onChange={e => updateItem(item.id, "itemNo", e.target.value)} placeholder="SKU" className="nv-cell-input" style={{ fontSize: F.body, fontWeight: 600, padding: "5px 6px" }} /><span className="nv-mob-only" style={{ fontSize: 9, color: "#BBB", fontWeight: 700 }}>ITEM NO</span></div>
-                      <div style={{ padding: "6px 2px", display: "flex", alignItems: "flex-start" }}><input type="number" min="0" value={item.qty} onChange={e => updateItem(item.id, "qty", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "center", fontWeight: 700, padding: "5px 4px" }} /></div>
-                      <div style={{ padding: "6px 2px", display: "flex", alignItems: "flex-start" }}><select value={item.uom} onChange={e => updateItem(item.id, "uom", e.target.value)} className="nv-cell-input" style={{ fontSize: F.small, cursor: "pointer", color: "#777", padding: "5px 2px" }}>{["ea", "ft", "sq ft", "ln ft", "set", "lot", "hr"].map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-                      <div style={{ padding: "4px 6px", display: "flex", alignItems: "flex-start" }}><textarea value={item.description} onChange={e => { updateItem(item.id, "description", e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} onFocus={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} placeholder="Description..." className="nv-cell-input nv-auto-grow" style={{ fontSize: F.body, lineHeight: 1.4, padding: "5px 6px" }} /></div>
-                      {s.showPrices && <div style={{ padding: "6px", display: "flex", alignItems: "flex-start" }}><input type="number" min="0" step="0.01" value={item.netPrice} onChange={e => updateItem(item.id, "netPrice", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "right", fontWeight: 700, padding: "5px 6px" }} /></div>}
-                      {s.showPrices && <div style={{ padding: "8px 6px", textAlign: "right", fontSize: F.body, fontWeight: 800, display: "flex", alignItems: "flex-start", justifyContent: "flex-end" }}>{fmt(item.qty * item.netPrice, s.currency)}</div>}
+                      {/* Item No */}
+                      <div style={{ padding: "6px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Item No</span></div><input value={item.itemNo} onChange={e => updateItem(item.id, "itemNo", e.target.value)} placeholder="SKU" className="nv-cell-input" style={{ fontSize: F.body, fontWeight: 600, padding: "5px 6px" }} /></div>
+                      {/* Qty */}
+                      <div style={{ padding: "6px 2px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Qty</span></div><input type="number" min="0" value={item.qty} onChange={e => updateItem(item.id, "qty", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "center", fontWeight: 700, padding: "5px 4px" }} /></div>
+                      {/* UOM */}
+                      <div style={{ padding: "6px 2px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>UOM</span></div><select value={item.uom} onChange={e => updateItem(item.id, "uom", e.target.value)} className="nv-cell-input" style={{ fontSize: F.small, cursor: "pointer", color: "#777", padding: "5px 2px" }}>{["ea", "ft", "sq ft", "ln ft", "set", "lot", "hr"].map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+                      {/* Description */}
+                      <div style={{ padding: "4px 6px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Description</span></div><textarea value={item.description} onChange={e => { updateItem(item.id, "description", e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} onFocus={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} placeholder="Description..." className="nv-cell-input nv-auto-grow" style={{ fontSize: F.body, lineHeight: 1.4, padding: "5px 6px" }} /></div>
+                      {/* Net Price */}
+                      {s.showPrices && <div style={{ padding: "6px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Net Price</span></div><input type="number" min="0" step="0.01" value={item.netPrice} onChange={e => updateItem(item.id, "netPrice", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "right", fontWeight: 700, padding: "5px 6px" }} /></div>}
+                      {/* Ext Amt */}
+                      {s.showPrices && <div style={{ padding: "6px", display: "flex", flexDirection: "column" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Ext Amt</span></div><div style={{ fontSize: F.body, fontWeight: 800, textAlign: "right", padding: "5px 0" }}>{fmt(item.qty * item.netPrice, s.currency)}</div></div>}
+                      {/* Actions */}
                       <div style={{ display: "flex", gap: 1, alignItems: "flex-start", justifyContent: "center", paddingTop: 8 }}>
                         <button onClick={() => dupItem(item.id)} title="Duplicate" style={{ background: "none", border: "none", cursor: "pointer", color: "#D4D4D4", padding: 2 }} onMouseEnter={e => { e.currentTarget.style.color = "#2D2D2D"; }} onMouseLeave={e => { e.currentTarget.style.color = "#D4D4D4"; }}><Cpy size={11} /></button>
                         <button onClick={() => removeItem(item.id)} title="Delete" style={{ background: "none", border: "none", cursor: "pointer", color: "#D4D4D4", padding: 2 }} onMouseEnter={e => { e.currentTarget.style.color = "#C8102E"; }} onMouseLeave={e => { e.currentTarget.style.color = "#D4D4D4"; }}><Trash size={11} /></button>
