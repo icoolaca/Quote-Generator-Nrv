@@ -61,7 +61,18 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
   const didPanRef = useRef(false);
   const imgRef = useRef(null);
 
-  const handleWheel = e => { e.preventDefault(); setZoom(z => Math.max(0.25, Math.min(5, z + (e.deltaY > 0 ? -0.1 : 0.1)))); };
+  // Trackpad pinch fires ctrlKey+wheel; mouse scroll fires plain wheel
+  const handleWheel = e => {
+    if (e.ctrlKey || e.metaKey) {
+      // Pinch-to-zoom (trackpad) or Ctrl+scroll (mouse)
+      e.preventDefault();
+      setZoom(z => Math.max(0.25, Math.min(5, z + (e.deltaY > 0 ? -0.08 : 0.08))));
+    } else {
+      // Plain mouse scroll — also zoom
+      e.preventDefault();
+      setZoom(z => Math.max(0.25, Math.min(5, z + (e.deltaY > 0 ? -0.15 : 0.15))));
+    }
+  };
 
   const handleMouseDown = e => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
@@ -106,7 +117,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
         <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}><ZO size={12} /></button>
         <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><Rst size={12} /></button>
         <span style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{Math.round(zoom * 100)}%</span>
-        <span style={{ fontSize: 9, color: "#BBB", marginLeft: 4 }}>Scroll=zoom · Alt+drag=pan · Click=pin · Drag pin=move</span>
+        <span style={{ fontSize: 9, color: "#BBB", marginLeft: 4 }}>Scroll/pinch=zoom · Alt+drag=pan · Click=pin · Drag pin=move</span>
       </div>
       <div onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
         style={{ width: "100%", height: 460, overflow: "hidden", borderRadius: 6, border: "1px solid #E5E5E5", background: "#F0F0F0", cursor: draggingPin ? "grabbing" : panning ? "grabbing" : "crosshair", position: "relative", touchAction: "none" }}>
@@ -253,6 +264,14 @@ export default function App() {
         .nv-red-stripe{position:relative}.nv-red-stripe::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#C8102E;border-radius:6px 0 0 6px}
         .col-resizer{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:5;background:transparent;transition:background .15s}
         .col-resizer:hover,.col-resizer.active{background:rgba(255,255,255,.4)}
+        /* Visible input borders in table cells */
+        .nv-cell-input{width:100%;border:1px solid #E8E8E8;background:#FFF;border-radius:3px;font-family:'Barlow',sans-serif;outline:none;transition:border-color .15s;box-sizing:border-box}
+        .nv-cell-input:focus{border-color:#C8102E!important;box-shadow:0 0 0 2px rgba(200,16,46,.08)}
+        .nv-cell-input:hover{border-color:#CCC}
+        /* Auto-grow textarea */
+        .nv-auto-grow{overflow:hidden;resize:none;min-height:32px;field-sizing:content}
+        /* Header column vertical dividers */
+        .nv-hdr-cell{border-right:1px solid rgba(255,255,255,.2);position:relative;user-select:none}
         .nv-table-scroll{overflow-x:auto;overflow-y:visible}
         .nv-table-scroll::-webkit-scrollbar{height:6px}
         .nv-table-scroll::-webkit-scrollbar-track{background:#F0F0F0;border-radius:3px}
@@ -361,10 +380,10 @@ export default function App() {
             <div className="nv-table-scroll">
               <div style={{ minWidth: 700 }}>
                 {/* Header */}
-                <div className="nv-desk-header" style={{ display: "grid", gridTemplateColumns: gridCols, background: "#C8102E", color: "#FFF", fontSize: Math.max(8, F.small - 1), fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em" }}>
-                  <div style={{ padding: "8px 4px", textAlign: "center" }}>LN</div>
-                  {colDefs.map(c => <div key={c.k} style={{ padding: "8px 6px", position: "relative", textAlign: c.k === 'netPrice' || c.k === 'extAmt' ? 'right' : 'left', userSelect: "none" }}>{c.l}<div className={`col-resizer ${resizing === c.k ? 'active' : ''}`} onMouseDown={e => handleResizeStart(c.k, e)} /></div>)}
-                  <div></div>
+                <div className="nv-desk-header" style={{ display: "grid", gridTemplateColumns: gridCols, background: "#C8102E", color: "#FFF", fontSize: Math.max(8, F.small - 1), fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", position: "sticky", top: 0, zIndex: 2 }}>
+                  <div className="nv-hdr-cell" style={{ padding: "8px 4px", textAlign: "center" }}>LN</div>
+                  {colDefs.map(c => <div key={c.k} className="nv-hdr-cell" style={{ padding: "8px 6px", textAlign: c.k === 'netPrice' || c.k === 'extAmt' ? 'right' : 'left' }}>{c.l}<div className={`col-resizer ${resizing === c.k ? 'active' : ''}`} onMouseDown={e => handleResizeStart(c.k, e)} /></div>)}
+                  <div className="nv-hdr-cell" style={{ borderRight: "none" }}></div>
                 </div>
                 {/* Rows */}
                 {s.items.map((item, idx) => {
@@ -381,11 +400,11 @@ export default function App() {
                           <input ref={el => { fileRefs.current[item.id] = el; }} type="file" accept="image/*" hidden onChange={e => handleFile("item", item.id, "image", e.target.files[0])} />
                         </div>
                       </div>
-                      <div style={{ padding: "6px", display: "flex", alignItems: "flex-start" }}><input value={item.itemNo} onChange={e => updateItem(item.id, "itemNo", e.target.value)} placeholder="SKU" style={{ width: "100%", border: "none", background: "transparent", fontSize: F.body, fontFamily: "'Barlow',sans-serif", fontWeight: 600, outline: "none", padding: "4px 0" }} /><span className="nv-mob-only" style={{ fontSize: 9, color: "#BBB", fontWeight: 700 }}>ITEM NO</span></div>
-                      <div style={{ padding: "6px 2px", display: "flex", alignItems: "flex-start" }}><input type="number" min="0" value={item.qty} onChange={e => updateItem(item.id, "qty", Math.max(0, Number(e.target.value)))} style={{ width: "100%", border: "none", background: "transparent", fontSize: F.body, fontFamily: "'Barlow',sans-serif", textAlign: "center", outline: "none", fontWeight: 700, padding: "4px 0" }} /></div>
-                      <div style={{ padding: "6px 2px", display: "flex", alignItems: "flex-start" }}><select value={item.uom} onChange={e => updateItem(item.id, "uom", e.target.value)} style={{ width: "100%", border: "none", background: "transparent", fontSize: F.small, fontFamily: "'Barlow',sans-serif", outline: "none", cursor: "pointer", color: "#777", padding: "4px 0" }}>{["ea", "ft", "sq ft", "ln ft", "set", "lot", "hr"].map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-                      <div style={{ padding: "4px 6px", display: "flex", alignItems: "flex-start" }}><textarea value={item.description} onChange={e => updateItem(item.id, "description", e.target.value)} placeholder="Description..." rows={1} style={{ width: "100%", border: "none", background: "transparent", fontSize: F.body, fontFamily: "'Barlow',sans-serif", outline: "none", resize: "vertical", minHeight: 28, lineHeight: 1.4, padding: "4px 0" }} /></div>
-                      {s.showPrices && <div style={{ padding: "6px", display: "flex", alignItems: "flex-start" }}><input type="number" min="0" step="0.01" value={item.netPrice} onChange={e => updateItem(item.id, "netPrice", Math.max(0, Number(e.target.value)))} style={{ width: "100%", border: "none", background: "transparent", fontSize: F.body, fontFamily: "'Barlow',sans-serif", textAlign: "right", outline: "none", fontWeight: 700, padding: "4px 0" }} /></div>}
+                      <div style={{ padding: "6px", display: "flex", alignItems: "flex-start" }}><input value={item.itemNo} onChange={e => updateItem(item.id, "itemNo", e.target.value)} placeholder="SKU" className="nv-cell-input" style={{ fontSize: F.body, fontWeight: 600, padding: "5px 6px" }} /><span className="nv-mob-only" style={{ fontSize: 9, color: "#BBB", fontWeight: 700 }}>ITEM NO</span></div>
+                      <div style={{ padding: "6px 2px", display: "flex", alignItems: "flex-start" }}><input type="number" min="0" value={item.qty} onChange={e => updateItem(item.id, "qty", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "center", fontWeight: 700, padding: "5px 4px" }} /></div>
+                      <div style={{ padding: "6px 2px", display: "flex", alignItems: "flex-start" }}><select value={item.uom} onChange={e => updateItem(item.id, "uom", e.target.value)} className="nv-cell-input" style={{ fontSize: F.small, cursor: "pointer", color: "#777", padding: "5px 2px" }}>{["ea", "ft", "sq ft", "ln ft", "set", "lot", "hr"].map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+                      <div style={{ padding: "4px 6px", display: "flex", alignItems: "flex-start" }}><textarea value={item.description} onChange={e => { updateItem(item.id, "description", e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} onFocus={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} placeholder="Description..." className="nv-cell-input nv-auto-grow" style={{ fontSize: F.body, lineHeight: 1.4, padding: "5px 6px" }} /></div>
+                      {s.showPrices && <div style={{ padding: "6px", display: "flex", alignItems: "flex-start" }}><input type="number" min="0" step="0.01" value={item.netPrice} onChange={e => updateItem(item.id, "netPrice", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "right", fontWeight: 700, padding: "5px 6px" }} /></div>}
                       {s.showPrices && <div style={{ padding: "8px 6px", textAlign: "right", fontSize: F.body, fontWeight: 800, display: "flex", alignItems: "flex-start", justifyContent: "flex-end" }}>{fmt(item.qty * item.netPrice, s.currency)}</div>}
                       <div style={{ display: "flex", gap: 1, alignItems: "flex-start", justifyContent: "center", paddingTop: 8 }}>
                         <button onClick={() => dupItem(item.id)} title="Duplicate" style={{ background: "none", border: "none", cursor: "pointer", color: "#D4D4D4", padding: 2 }} onMouseEnter={e => { e.currentTarget.style.color = "#2D2D2D"; }} onMouseLeave={e => { e.currentTarget.style.color = "#D4D4D4"; }}><Cpy size={11} /></button>
