@@ -32,7 +32,7 @@ const DEFAULT = {
 const SK = "nerval-quote-data", SVK = "nerval-saved-quotes";
 const ld = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } };
 const sv = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-const loadPdf = () => new Promise(r => { if (window.html2pdf) return r(window.html2pdf); const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"; s.onload = () => r(window.html2pdf); document.head.appendChild(s); });
+/* PDF uses native browser print → Save as PDF */
 
 /* ─── Icons ─── */
 const I = ({ d, size = 17, ...p }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d={d} /></svg>;
@@ -227,7 +227,6 @@ export default function App() {
   const [s, setS] = useState(() => { const d = ld(SK); return d ? { ...DEFAULT, ...d, fonts: { ...DF, ...(d.fonts || {}) }, cols: { ...DC, ...(d.cols || {}) } } : DEFAULT; });
   const [savedList, setSavedList] = useState(() => ld(SVK) || []);
   const [panel, setPanel] = useState(null);
-  const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState(null);
   const [tab, setTab] = useState("items");
   const [editingPin, setEditingPin] = useState(null);
@@ -285,59 +284,16 @@ export default function App() {
   const dupQ = q => { const clone = { ...q, id: uid(), name: q.name + " (copy)", data: JSON.parse(JSON.stringify(q.data)) }; const u = [clone, ...savedList]; setSavedList(u); sv(SVK, u); flash("Duplicated!"); };
   const newQ = () => { setS({ ...DEFAULT, quoteNumber: String(Math.floor(Math.random() * 90000) + 10000), items: [emptyItem()], drawings: [] }); flash("New quote!"); };
 
-  const exportPDF = async () => {
-    setExporting(true);
-    try {
-      const h = await loadPdf();
-      const src = printRef.current;
-      // Clone and append to body as a static element so it can span full height
-      const clone = src.cloneNode(true);
-      Object.assign(clone.style, {
-        position: "absolute",
-        left: "0",
-        top: "0",
-        width: "780px",
-        zIndex: "99999",
-        visibility: "visible",
-        opacity: "1",
-        background: "#FFF",
-        overflow: "visible",
-        height: "auto",
-        maxHeight: "none",
-      });
-      clone.setAttribute("data-pdf-clone", "1");
-      document.body.appendChild(clone);
-      // Scroll to top so html2canvas captures from the beginning
-      window.scrollTo(0, 0);
-      await new Promise(r => setTimeout(r, 800));
-      await h().set({
-        margin: [8, 8, 8, 8],
-        filename: `${s.docTitle || "Quote"}-${s.quoteNumber}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0, y: 0, height: clone.scrollHeight, windowWidth: 820, windowHeight: clone.scrollHeight + 100 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], avoid: ["tr", "img"] },
-      }).from(clone).save();
-      document.body.removeChild(clone);
-      flash("PDF exported!");
-    } catch (e) {
-      console.error(e);
-      const leftover = document.querySelector("[data-pdf-clone]");
-      if (leftover) leftover.remove();
-      flash("Export failed — check console");
-    }
-    setExporting(false);
-  };
-  const doPrint = () => {
+  // Both export and print use the same approach: show the PDF element, trigger print dialog
+  // For "Save as PDF", user selects "Save as PDF" as the printer destination
+  const triggerPrint = () => {
     const src = printRef.current;
-    // Make the hidden element visible for print
     src.style.position = "static";
     src.style.left = "auto";
     src.style.visibility = "visible";
     src.style.width = "100%";
     setTimeout(() => {
       window.print();
-      // Restore hidden state after print dialog
       setTimeout(() => {
         src.style.position = "fixed";
         src.style.left = "-9999px";
@@ -345,6 +301,8 @@ export default function App() {
       }, 500);
     }, 200);
   };
+  const exportPDF = () => { flash("Choose 'Save as PDF' as destination in print dialog"); triggerPrint(); };
+  const doPrint = () => triggerPrint();
 
   // Adjustable: img, itemNo, desc — these 3 share the "flexible" portion
   // Fixed: LN(3%), qty, uom, netPrice, extAmt, actions(5%)
@@ -398,7 +356,7 @@ export default function App() {
           <button className="nv-btn" onClick={() => setPanel(panel === "saved" ? null : "saved")}><Fld size={13} /></button>
           <button className="nv-btn" onClick={() => setPanel(panel === "settings" ? null : "settings")}><Gear size={13} /></button>
           <button className="nv-btn" onClick={doPrint}><Prn size={13} /></button>
-          <button className="nv-btn nv-btn-red" onClick={exportPDF} disabled={exporting}><DL size={13} /> {exporting ? "…" : "PDF"}</button>
+          <button className="nv-btn nv-btn-red" onClick={exportPDF}><DL size={13} /> Save PDF</button>
         </div>
       </div>
 
