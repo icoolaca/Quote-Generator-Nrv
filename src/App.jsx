@@ -176,6 +176,49 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
   );
 }
 
+/* ─── Stable form input (defined outside App to prevent re-mount) ─── */
+function Inp({ label, value, onChange, type = "text", placeholder, small, autoComplete, name }) {
+  return (
+    <div>
+      {label && <label className="nv-field-label">{label}</label>}
+      <input
+        type={type}
+        name={name || label?.toLowerCase().replace(/[^a-z]/g, '')}
+        autoComplete={autoComplete || "off"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="nv-cell-input"
+        style={{ padding: small ? "6px 8px" : "8px 10px" }}
+      />
+    </div>
+  );
+}
+
+/* ─── Slider helpers (stable) ─── */
+function FontSlider({ label, path, value, onChange }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, width: 72, color: "#888", textTransform: "uppercase" }}>{label}</span>
+      <input type="range" min={path === "pinSize" ? 12 : path === "header" ? 18 : path === "subheader" ? 10 : path === "body" ? 9 : 7}
+        max={path === "pinSize" ? 74 : path === "header" ? 42 : path === "subheader" ? 22 : path === "body" ? 18 : 14}
+        value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, accentColor: "#C8102E" }} />
+      <span style={{ fontSize: 11, fontWeight: 700, width: 28, textAlign: "right" }}>{value}px</span>
+    </div>
+  );
+}
+
+function ColSlider({ label, path, value, onChange }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, width: 72, color: "#888", textTransform: "uppercase" }}>{label}</span>
+      <input type="range" min={path === "desc" ? 10 : 5} max={path === "desc" ? 60 : path === "img" ? 40 : 30}
+        step="0.5" value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, accentColor: "#C8102E" }} />
+      <span style={{ fontSize: 11, fontWeight: 700, width: 32, textAlign: "right" }}>{value}%</span>
+    </div>
+  );
+}
+
 /* ═══ MAIN ═══ */
 export default function App() {
   const [s, setS] = useState(() => { const d = ld(SK); return d ? { ...DEFAULT, ...d, fonts: { ...DF, ...(d.fonts || {}) }, cols: { ...DC, ...(d.cols || {}) } } : DEFAULT; });
@@ -197,7 +240,15 @@ export default function App() {
   const F = s.fonts || DF;
   const C = s.cols || DC;
 
-  const set = useCallback((path, val) => { setS(prev => { const n = JSON.parse(JSON.stringify(prev)); const k = path.split("."); let o = n; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; return n; }); }, []);
+  const set = useCallback((path, val) => {
+    setS(prev => {
+      const keys = path.split(".");
+      if (keys.length === 1) return { ...prev, [keys[0]]: val };
+      if (keys.length === 2) return { ...prev, [keys[0]]: { ...prev[keys[0]], [keys[1]]: val } };
+      if (keys.length === 3) return { ...prev, [keys[0]]: { ...prev[keys[0]], [keys[1]]: { ...prev[keys[0]][keys[1]], [keys[2]]: val } } };
+      return prev;
+    });
+  }, []);
   const updateItem = useCallback((id, f, v) => setS(p => ({ ...p, items: p.items.map(i => i.id === id ? { ...i, [f]: v } : i) })), []);
   const updateDrawing = useCallback((id, f, v) => setS(p => ({ ...p, drawings: p.drawings.map(d => d.id === id ? { ...d, [f]: v } : d) })), []);
   const addItem = () => setS(p => ({ ...p, items: [...p.items, emptyItem()] }));
@@ -266,14 +317,8 @@ export default function App() {
     setResizing(ck); document.addEventListener('mousemove', onM); document.addEventListener('mouseup', onU);
   };
 
-  const Inp = ({ label, value, onChange, type = "text", placeholder, small }) => (
-    <div>
-      {label && <label style={{ display: "block", fontSize: F.small, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#888", marginBottom: 4 }}>{label}</label>}
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ width: "100%", padding: small ? "6px 8px" : "8px 10px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: small ? F.small : F.body, fontFamily: "'Barlow',sans-serif", color: "#1A1A1A", background: "#FFF", outline: "none", boxSizing: "border-box" }} onFocus={e => { e.target.style.borderColor = "#C8102E"; }} onBlur={e => { e.target.style.borderColor = "#D4D4D4"; }} />
-    </div>
-  );
-  const FS = ({ label, path, min, max }) => <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><span style={{ fontSize: 10, fontWeight: 700, width: 72, color: "#888", textTransform: "uppercase" }}>{label}</span><input type="range" min={min} max={max} value={s.fonts?.[path] || DF[path]} onChange={e => set(`fonts.${path}`, Number(e.target.value))} style={{ flex: 1, accentColor: "#C8102E" }} /><span style={{ fontSize: 11, fontWeight: 700, width: 28, textAlign: "right" }}>{s.fonts?.[path] || DF[path]}px</span></div>;
-  const CS = ({ label, path, min, max }) => <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}><span style={{ fontSize: 10, fontWeight: 700, width: 72, color: "#888", textTransform: "uppercase" }}>{label}</span><input type="range" min={min} max={max} step="0.5" value={s.cols?.[path] || DC[path]} onChange={e => set(`cols.${path}`, Number(e.target.value))} style={{ flex: 1, accentColor: "#C8102E" }} /><span style={{ fontSize: 11, fontWeight: 700, width: 32, textAlign: "right" }}>{s.cols?.[path] || DC[path]}%</span></div>;
+  /* Inp, FontSlider, ColSlider defined outside App for stability */
+
 
   /* ═══ RENDER ═══ */
   return (
@@ -307,13 +352,18 @@ export default function App() {
         <div className="no-print" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 400, maxWidth: "92vw", background: "#FFF", zIndex: 200, overflowY: "auto", padding: 24, animation: "slideIn .25s ease-out", boxShadow: "-8px 0 40px rgba(0,0,0,.15)", borderLeft: "3px solid #C8102E" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}><h3 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 18, textTransform: "uppercase" }}>Settings</h3><button className="nv-btn" style={{ padding: "4px 8px" }} onClick={() => setPanel(null)}><X size={14} /></button></div>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10 }}>Font Sizes</div>
-          <FS label="Header" path="header" min={18} max={42} /><FS label="Subheader" path="subheader" min={10} max={22} /><FS label="Body" path="body" min={9} max={18} /><FS label="Small" path="small" min={7} max={14} />
+          <FontSlider label="Header" path="header" value={F.header} onChange={v => set("fonts.header", v)} />
+          <FontSlider label="Subheader" path="subheader" value={F.subheader} onChange={v => set("fonts.subheader", v)} />
+          <FontSlider label="Body" path="body" value={F.body} onChange={v => set("fonts.body", v)} />
+          <FontSlider label="Small" path="small" value={F.small} onChange={v => set("fonts.small", v)} />
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 14 }}>Pin Annotations</div>
-          <FS label="Pin Size" path="pinSize" min={12} max={74} />
+          <FontSlider label="Pin Size" path="pinSize" value={F.pinSize || 22} onChange={v => set("fonts.pinSize", v)} />
           <button className="nv-btn" style={{ marginBottom: 20, fontSize: 10 }} onClick={() => set("fonts", { ...DF })}>Reset Fonts</button>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 10 }}>Column Widths (ratio)</div>
           <p style={{ fontSize: 10, color: "#999", marginBottom: 10 }}>Adjust Image, Item No, and Description proportions. They auto-scale to fill available space. Other columns are fixed.</p>
-          <CS label="Image" path="img" min={5} max={40} /><CS label="Item No" path="itemNo" min={5} max={30} /><CS label="Description" path="desc" min={10} max={60} />
+          <ColSlider label="Image" path="img" value={C.img} onChange={v => set("cols.img", v)} />
+          <ColSlider label="Item No" path="itemNo" value={C.itemNo} onChange={v => set("cols.itemNo", v)} />
+          <ColSlider label="Description" path="desc" value={C.desc} onChange={v => set("cols.desc", v)} />
           <button className="nv-btn" style={{ fontSize: 10 }} onClick={() => set("cols", { ...DC })}>Reset Columns</button>
         </div>
       )}
@@ -345,12 +395,19 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }} className="nv-resp-2">
             <div style={{ padding: "14px 20px", borderRight: "1px solid #E5E5E5", borderBottom: "1px solid #E5E5E5" }}>
               <div style={{ fontSize: F.small, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 8, background: "#F7F7F7", padding: "3px 8px", display: "inline-block", borderRadius: 2 }}>Prepared For:</div>
-              <Inp label="Name" value={s.preparedFor.name} onChange={v => set("preparedFor.name", v)} small /><div style={{ height: 5 }} /><Inp label="Address" value={s.preparedFor.address} onChange={v => set("preparedFor.address", v)} small /><div style={{ height: 5 }} /><Inp label="City/Prov/Postal" value={s.preparedFor.cityProv} onChange={v => set("preparedFor.cityProv", v)} small />
+              <Inp label="Name" name="prepared-name" autoComplete="organization" value={s.preparedFor.name} onChange={v => set("preparedFor.name", v)} small /><div style={{ height: 5 }} />
+              <Inp label="Address" name="prepared-address" autoComplete="street-address" value={s.preparedFor.address} onChange={v => set("preparedFor.address", v)} small /><div style={{ height: 5 }} />
+              <Inp label="City/Prov/Postal" name="prepared-city" autoComplete="address-level2" value={s.preparedFor.cityProv} onChange={v => set("preparedFor.cityProv", v)} small />
             </div>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #E5E5E5" }}>
               <div style={{ fontSize: F.small, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 8, background: "#F7F7F7", padding: "3px 8px", display: "inline-block", borderRadius: 2 }}>Ship To:</div>
-              <Inp label="Name" value={s.shipTo.name} onChange={v => set("shipTo.name", v)} small /><div style={{ height: 5 }} /><Inp label="Address" value={s.shipTo.address} onChange={v => set("shipTo.address", v)} small /><div style={{ height: 5 }} /><Inp label="City/Prov/Postal" value={s.shipTo.cityProv} onChange={v => set("shipTo.cityProv", v)} small /><div style={{ height: 5 }} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }} className="nv-resp-2"><Inp label="Phone" value={s.shipTo.phone} onChange={v => set("shipTo.phone", v)} small /><Inp label="Email" value={s.shipTo.email} onChange={v => set("shipTo.email", v)} small /></div>
+              <Inp label="Name" name="ship-name" autoComplete="organization" value={s.shipTo.name} onChange={v => set("shipTo.name", v)} small /><div style={{ height: 5 }} />
+              <Inp label="Address" name="ship-address" autoComplete="street-address" value={s.shipTo.address} onChange={v => set("shipTo.address", v)} small /><div style={{ height: 5 }} />
+              <Inp label="City/Prov/Postal" name="ship-city" autoComplete="address-level2" value={s.shipTo.cityProv} onChange={v => set("shipTo.cityProv", v)} small /><div style={{ height: 5 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }} className="nv-resp-2">
+                <Inp label="Phone" name="ship-phone" type="tel" autoComplete="tel" value={s.shipTo.phone} onChange={v => set("shipTo.phone", v)} small />
+                <Inp label="Email" name="ship-email" type="email" autoComplete="email" value={s.shipTo.email} onChange={v => set("shipTo.email", v)} small />
+              </div>
             </div>
           </div>
           <div>
