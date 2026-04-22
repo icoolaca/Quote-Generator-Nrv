@@ -286,56 +286,57 @@ export default function App() {
     setExporting(true);
     try {
       const h = await loadPdf();
-      const el = printRef.current;
-      // Make visible for capture
-      el.style.position = "absolute";
-      el.style.left = "0";
-      el.style.top = "0";
-      el.style.zIndex = "1";
-      el.style.opacity = "1";
-      el.style.visibility = "visible";
-      // Wait for browser to fully render (images, fonts, layout)
-      await new Promise(r => setTimeout(r, 500));
+      const src = printRef.current;
+      // Clone the hidden PDF element and append it to body for reliable capture
+      const clone = src.cloneNode(true);
+      clone.style.position = "fixed";
+      clone.style.left = "0";
+      clone.style.top = "0";
+      clone.style.width = "780px";
+      clone.style.zIndex = "99999";
+      clone.style.visibility = "visible";
+      clone.style.opacity = "1";
+      clone.style.background = "#FFF";
+      clone.style.overflow = "visible";
+      document.body.appendChild(clone);
+      // Wait for images and fonts to render
+      await new Promise(r => setTimeout(r, 600));
       await h().set({
         margin: [6, 6, 6, 6],
         filename: `${s.docTitle || "Quote"}-${s.quoteNumber}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0, windowWidth: 800 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: -window.scrollY, windowWidth: 820 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-      }).from(el).save();
-      // Hide again
-      el.style.position = "fixed";
-      el.style.left = "-9999px";
-      el.style.zIndex = "";
-      el.style.visibility = "hidden";
+      }).from(clone).save();
+      document.body.removeChild(clone);
       flash("PDF exported!");
     } catch (e) {
       console.error(e);
-      if (printRef.current) {
-        printRef.current.style.position = "fixed";
-        printRef.current.style.left = "-9999px";
-        printRef.current.style.visibility = "hidden";
-      }
+      // Clean up any leftover clone
+      const leftover = document.querySelector('[data-pdf-clone]');
+      if (leftover) document.body.removeChild(leftover);
       flash("Export failed");
     }
     setExporting(false);
   };
   const doPrint = () => {
-    const el = printRef.current;
-    el.style.position = "absolute";
-    el.style.left = "0";
-    el.style.top = "0";
-    el.style.zIndex = "9999";
-    el.style.opacity = "1";
-    el.style.visibility = "visible";
+    const src = printRef.current;
+    const clone = src.cloneNode(true);
+    clone.style.position = "fixed";
+    clone.style.left = "0";
+    clone.style.top = "0";
+    clone.style.width = "100%";
+    clone.style.zIndex = "99999";
+    clone.style.visibility = "visible";
+    clone.style.opacity = "1";
+    clone.style.background = "#FFF";
+    clone.setAttribute("data-pdf-clone", "1");
+    document.body.appendChild(clone);
     setTimeout(() => {
       window.print();
-      el.style.position = "fixed";
-      el.style.left = "-9999px";
-      el.style.zIndex = "";
-      el.style.visibility = "hidden";
-    }, 200);
+      document.body.removeChild(clone);
+    }, 300);
   };
 
   // Adjustable: img, itemNo, desc — these 3 share the "flexible" portion
@@ -573,7 +574,8 @@ export default function App() {
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}><label style={{ fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888" }}>Currency</label><select value={s.currency} onChange={e => set("currency", e.target.value)} style={{ border: "1px solid #D4D4D4", borderRadius: 3, padding: "2px 6px", fontSize: F.body, fontFamily: "'Barlow',sans-serif", outline: "none", cursor: "pointer", fontWeight: 600 }}>{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
           </div>
           <div className="nv-card nv-red-stripe" style={{ background: "#FFF", borderRadius: 6, border: "1px solid #E0E0E0", padding: "16px 16px 16px 22px", alignSelf: "flex-start" }}>
-            {calc.dS > 0 && <SR l="Drawings" v={fmt(calc.dS, s.currency)} F={F} />}{calc.iS > 0 && <SR l="Items" v={fmt(calc.iS, s.currency)} F={F} />}<SR l="SUBTOTAL" v={fmt(calc.sub, s.currency)} b F={F} />
+            {s.drawings.map(d => d.totalPrice > 0 ? <SR key={d.id} l={d.title || "Drawing"} v={fmt(d.totalPrice, s.currency)} F={F} /> : null)}
+            {calc.iS > 0 && <SR l="Items" v={fmt(calc.iS, s.currency)} F={F} />}<SR l="SUBTOTAL" v={fmt(calc.sub, s.currency)} b F={F} />
             {s.showExtras && <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}><span style={{ fontSize: F.body, color: "#777", fontWeight: 600 }}>FREIGHT</span><input type="number" min="0" step="0.01" value={s.freight} onChange={e => set("freight", Math.max(0, Number(e.target.value)))} style={{ width: 80, textAlign: "right", border: "1px solid #E5E5E5", borderRadius: 3, padding: "3px 5px", fontSize: F.body, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none" }} /></div>
             </>}
@@ -593,7 +595,26 @@ export default function App() {
         <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" className="nv-logo" style={{ height: 36 }} />}<div style={{ fontSize: 10, opacity: .8, lineHeight: 1.6 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em", textTransform: "uppercase" }}>{s.docTitle || "QUOTATION"}</div><div style={{ fontSize: 11, marginTop: 2 }}>Quote: <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
         <div style={{ display: "flex", borderBottom: "1px solid #E5E5E5" }}><div style={{ flex: 1, padding: "12px 24px", borderRight: "1px solid #E5E5E5" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Prepared For:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.preparedFor.name}</div><div>{s.preparedFor.address}</div><div>{s.preparedFor.cityProv}</div></div><div style={{ flex: 1, padding: "12px 24px" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Ship To:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.shipTo.name}</div><div>{s.shipTo.address}</div><div>{s.shipTo.cityProv}</div>{s.shipTo.phone && <div>Phone: {s.shipTo.phone}</div>}</div></div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}>{["Customer #", "Carrier", "PO #", "Ship Date", "Salesperson"].map(h => <th key={h} style={{ padding: "5px 10px", textAlign: "left" }}>{h}</th>)}</tr></thead><tbody><tr style={{ borderBottom: "1px solid #E5E5E5", fontSize: 11 }}><td style={{ padding: "5px 10px" }}>{s.customerNo}</td><td style={{ padding: "5px 10px" }}>{s.carrier}</td><td style={{ padding: "5px 10px" }}>{s.poNumber}</td><td style={{ padding: "5px 10px" }}>{s.shipDate}</td><td style={{ padding: "5px 10px" }}>{s.salesperson}</td></tr></tbody></table>
-        {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}><div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #C8102E", paddingBottom: 4, marginBottom: 6 }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>{s.showPrices && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}</div>{d.image && <div style={{ position: "relative", display: "inline-block", width: "100%" }}><img src={d.image} alt="" style={{ maxWidth: "100%", maxHeight: 340, objectFit: "contain", border: "1px solid #E5E5E5", borderRadius: 4 }} />{(d.pins || []).map(p => <div key={p.id}><div style={{ position: "absolute", left: `${p.xPct}%`, top: `${p.yPct}%`, width: 16, height: 16, borderRadius: "50%", background: "#C8102E", border: "2px solid #FFF", transform: "translate(-50%,-50%)", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} /><div style={{ position: "absolute", left: `${p.xPct}%`, top: `calc(${p.yPct}% + 12px)`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}><div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700 }}>{p.main}</div>{p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1 }}>{p.sub}</div>}</div></div>)}</div>}{d.notes && <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>NOTE: {d.notes}</div>}</div>)}</div>}
+        {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #C8102E", paddingBottom: 4, marginBottom: 6 }}>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>
+            {s.showPrices && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}
+          </div>
+          {d.image && <div style={{ position: "relative", display: "inline-block" }}>
+            <img src={d.image} alt="" style={{ maxWidth: 730, maxHeight: 340, display: "block", border: "1px solid #E5E5E5", borderRadius: 4 }} />
+            {/* Pins overlay — positioned as % of the image element */}
+            <div style={{ position: "absolute", inset: 0 }}>
+              {(d.pins || []).map(p => <div key={p.id} style={{ position: "absolute", left: `${p.xPct}%`, top: `${p.yPct}%` }}>
+                <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#C8102E", border: "2px solid #FFF", transform: "translate(-50%,-50%)", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
+                <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
+                  <div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700 }}>{p.main}</div>
+                  {p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1 }}>{p.sub}</div>}
+                </div>
+              </div>)}
+            </div>
+          </div>}
+          {d.notes && <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>NOTE: {d.notes}</div>}
+        </div>)}</div>}
         {s.items.some(i => i.itemNo || i.description) && <table style={{ width: "100%", borderCollapse: "collapse", margin: "0 0 12px", fontSize: 10 }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}><th style={{ padding: "5px 8px", textAlign: "left", width: 22 }}>LN</th><th style={{ padding: "5px 6px", width: 50 }}>Img</th><th style={{ padding: "5px 8px" }}>Item No</th><th style={{ padding: "5px 6px", textAlign: "center", width: 28 }}>Qty</th><th style={{ padding: "5px 6px", width: 28 }}>UOM</th><th style={{ padding: "5px 8px" }}>Description</th>{s.showPrices && <th style={{ padding: "5px 8px", textAlign: "right" }}>Net Price</th>}{s.showPrices && <th style={{ padding: "5px 8px", textAlign: "right" }}>Ext Amt</th>}</tr></thead><tbody>{s.items.map((it, i) => <tr key={it.id} style={{ borderBottom: "1px solid #EEE", background: i % 2 === 0 ? "#FFF" : "#FAFAFA" }}><td style={{ padding: "5px 8px", color: "#999" }}>{i + 1}</td><td style={{ padding: "3px 4px" }}>{it.image && <img src={it.image} alt="" style={{ width: 46, height: 30, objectFit: "contain", borderRadius: 2 }} />}</td><td style={{ padding: "5px 8px", fontWeight: 600 }}>{it.itemNo}</td><td style={{ padding: "5px 6px", textAlign: "center" }}>{it.qty}</td><td style={{ padding: "5px 6px" }}>{it.uom}</td><td style={{ padding: "5px 8px", whiteSpace: "pre-wrap", lineHeight: 1.35 }}>{it.description}</td>{s.showPrices && <td style={{ padding: "5px 8px", textAlign: "right" }}>{fmt(it.netPrice, s.currency)}</td>}{s.showPrices && <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700 }}>{fmt(it.qty * it.netPrice, s.currency)}</td>}</tr>)}</tbody></table>}
         <div style={{ display: "flex", padding: "0 24px 20px", gap: 20 }}><div style={{ flex: 1, fontSize: 9, color: "#777", lineHeight: 1.5 }}>{s.notes && <><div style={{ marginBottom: 4 }}><strong style={{ color: "#333", fontSize: 10 }}>NOTE:</strong></div><div style={{ marginBottom: 8 }}>{s.notes}</div></>}{s.termsNotes && <div style={{ whiteSpace: "pre-wrap", borderTop: "1px solid #EEE", paddingTop: 6, marginTop: 4 }}>{s.termsNotes}</div>}</div><div style={{ width: 220 }}>
           <PR l="SUBTOTAL" v={fmt(calc.sub, s.currency)} b />
