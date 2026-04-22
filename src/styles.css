@@ -209,6 +209,13 @@ textarea:focus {
   background: #999;
 }
 
+/* ─── Logo ─── */
+.nv-logo {
+  height: 36px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
 /* ─── Drawing canvas ─── */
 .nv-canvas-viewport {
   width: 100%;
@@ -221,10 +228,23 @@ textarea:focus {
   touch-action: none;
 }
 
+/* ─── Logo ─── */
+.nv-logo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ─── Logo ─── */
+.nv-logo {
+  height: 36px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
 /* ─── Pin dots ─── */
 .nv-pin-dot {
-  width: 22px;
-  height: 22px;
+  /* Size is controlled via inline style from settings (F.pinSize) */
   border-radius: 50%;
   border: 3px solid #FFF;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);

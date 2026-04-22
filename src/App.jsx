@@ -13,7 +13,7 @@ const emptyItem = () => ({ id: uid(), itemNo: "", qty: 1, uom: "ea", description
 const emptyDrawing = () => ({ id: uid(), image: null, title: "", totalPrice: 0, notes: "", pins: [] });
 const emptyPin = (xPct, yPct) => ({ id: uid(), xPct, yPct, main: "Spec Title", sub: "Details here" });
 
-const DF = { header: 28, subheader: 14, body: 12, small: 10 };
+const DF = { header: 28, subheader: 14, body: 12, small: 10, pinSize: 22 };
 const DC = { img: 15, itemNo: 12, qty: 6, uom: 6, desc: 30, netPrice: 10, extAmt: 12.9 };
 // Only img, itemNo, desc are user-adjustable; rest are fixed
 const FIXED_COLS = { qty: 6, uom: 6, netPrice: 10, extAmt: 12.9 };
@@ -55,9 +55,18 @@ const Rst=p=><I d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.6
 const Move=p=><I d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" {...p}/>;
 
 /* ═══ DrawingCanvas with zoom/pan/draggable pins ═══ */
-function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, editingPin, setEditingPin, F }) {
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, editingPin, setEditingPin, F, canvasView, setCanvasView }) {
+  const zoom = canvasView?.zoom ?? 1;
+  const pan = canvasView?.pan ?? { x: 0, y: 0 };
+  const setZoom = (z) => {
+    const newZ = typeof z === 'function' ? z(zoom) : z;
+    setCanvasView({ ...canvasView, zoom: newZ });
+  };
+  const setPanVal = (p) => {
+    const newP = typeof p === 'function' ? p(pan) : p;
+    setCanvasView({ ...canvasView, pan: newP });
+  };
+  
   const [panning, setPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [draggingPin, setDraggingPin] = useState(null);
@@ -65,11 +74,17 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
   const didPanRef = useRef(false);
   const imgRef = useRef(null);
   const containerRef = useRef(null);
+  const isHovering = useRef(false);
 
-  // Spacebar hold detection for panning
+  // Spacebar hold detection — only when hovering over the canvas
   useEffect(() => {
-    const onKeyDown = (e) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); setSpaceDown(true); } };
-    const onKeyUp = (e) => { if (e.code === "Space") { setSpaceDown(false); } };
+    const onKeyDown = (e) => {
+      if (e.code === "Space" && !e.repeat && isHovering.current) {
+        e.preventDefault();
+        setSpaceDown(true);
+      }
+    };
+    const onKeyUp = (e) => { if (e.code === "Space") setSpaceDown(false); };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
@@ -85,7 +100,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
   const handleMouseMove = e => {
     if (panning) {
       didPanRef.current = true;
-      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+      setPanVal({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     }
     if (draggingPin) {
       e.preventDefault();
@@ -116,11 +131,13 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
       <div style={{ display: "flex", gap: 4, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => setZoom(z => Math.min(5, z + 0.25))}><ZI size={12} /></button>
         <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}><ZO size={12} /></button>
-        <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><Rst size={12} /></button>
+        <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => setCanvasView({ zoom: 1, pan: { x: 0, y: 0 } })}><Rst size={12} /></button>
         <span style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{Math.round(zoom * 100)}%</span>
         <span style={{ fontSize: 9, color: "#BBB", marginLeft: 4 }}>Space+drag=pan · Click=pin · Drag pin=move</span>
       </div>
-      <div onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+      <div onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+        onMouseLeave={() => { handleMouseUp(); isHovering.current = false; setSpaceDown(false); }}
+        onMouseEnter={() => { isHovering.current = true; }}
         className="nv-canvas-viewport"
         style={{ cursor: draggingPin ? "grabbing" : panning ? "grabbing" : spaceDown ? "grab" : "crosshair" }}>
         <div style={{ transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`, transformOrigin: "center center", position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -132,7 +149,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
                 <div onMouseDown={e => startPinDrag(e, pin.id)}
                   onClick={e => { e.stopPropagation(); if (!draggingPin) setEditingPin(editingPin === pin.id ? null : pin.id); }}
                   className={`nv-pin-dot ${draggingPin === pin.id ? 'dragging' : ''}`}
-                  style={{ background: draggingPin === pin.id ? undefined : "#C8102E" }} />
+                  style={{ width: F.pinSize || 22, height: F.pinSize || 22, background: draggingPin === pin.id ? undefined : "#C8102E" }} />
                 {/* Label */}
                 <div style={{ position: "absolute", left: "50%", top: 16, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap", pointerEvents: "none", zIndex: 11 }}>
                   <div className="nv-pin-label-main" style={{ fontSize: Math.max(9, F.small) }}>{pin.main}</div>
@@ -169,6 +186,7 @@ export default function App() {
   const [tab, setTab] = useState("items");
   const [editingPin, setEditingPin] = useState(null);
   const [resizing, setResizing] = useState(null);
+  const [canvasViews, setCanvasViews] = useState({});
   const printRef = useRef(null);
   const fileRefs = useRef({});
   const drawingRefs = useRef({});
@@ -210,6 +228,7 @@ export default function App() {
   const saveQ = () => { const e = { id: uid(), name: `${s.preparedFor.name} — #${s.quoteNumber}`, date: s.date, data: s }; const u = [e, ...savedList.slice(0, 49)]; setSavedList(u); sv(SVK, u); flash("Saved!"); };
   const loadQ = q => { setS({ ...DEFAULT, ...q.data, fonts: { ...DF, ...(q.data.fonts || {}) }, cols: { ...DC, ...(q.data.cols || {}) } }); setPanel(null); flash("Loaded!"); };
   const delQ = id => { const u = savedList.filter(q => q.id !== id); setSavedList(u); sv(SVK, u); };
+  const dupQ = q => { const clone = { ...q, id: uid(), name: q.name + " (copy)", data: JSON.parse(JSON.stringify(q.data)) }; const u = [clone, ...savedList]; setSavedList(u); sv(SVK, u); flash("Duplicated!"); };
   const newQ = () => { setS({ ...DEFAULT, quoteNumber: String(Math.floor(Math.random() * 90000) + 10000), items: [emptyItem()], drawings: [] }); flash("New quote!"); };
 
   const exportPDF = async () => {
@@ -289,6 +308,8 @@ export default function App() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}><h3 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 18, textTransform: "uppercase" }}>Settings</h3><button className="nv-btn" style={{ padding: "4px 8px" }} onClick={() => setPanel(null)}><X size={14} /></button></div>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10 }}>Font Sizes</div>
           <FS label="Header" path="header" min={18} max={42} /><FS label="Subheader" path="subheader" min={10} max={22} /><FS label="Body" path="body" min={9} max={18} /><FS label="Small" path="small" min={7} max={14} />
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 14 }}>Pin Annotations</div>
+          <FS label="Pin Size" path="pinSize" min={12} max={74} />
           <button className="nv-btn" style={{ marginBottom: 20, fontSize: 10 }} onClick={() => set("fonts", { ...DF })}>Reset Fonts</button>
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 10 }}>Column Widths (ratio)</div>
           <p style={{ fontSize: 10, color: "#999", marginBottom: 10 }}>Adjust Image, Item No, and Description proportions. They auto-scale to fill available space. Other columns are fixed.</p>
@@ -300,7 +321,7 @@ export default function App() {
         <div className="no-print" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 380, maxWidth: "92vw", background: "#FFF", zIndex: 200, overflowY: "auto", padding: 24, animation: "slideIn .25s ease-out", boxShadow: "-8px 0 40px rgba(0,0,0,.15)", borderLeft: "3px solid #C8102E" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}><h3 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 18, textTransform: "uppercase" }}>Saved</h3><button className="nv-btn" style={{ padding: "4px 8px" }} onClick={() => setPanel(null)}><X size={14} /></button></div>
           {savedList.length === 0 ? <p style={{ color: "#999", fontSize: 13, textAlign: "center", padding: "40px 0" }}>No saved quotes.</p> :
-            savedList.map(q => <div key={q.id} style={{ padding: 14, border: "1px solid #E5E5E5", borderRadius: 6, marginBottom: 8, cursor: "pointer", borderLeft: "3px solid transparent", transition: "all .2s" }} onClick={() => loadQ(q)} onMouseEnter={e => { e.currentTarget.style.borderLeftColor = "#C8102E"; e.currentTarget.style.background = "#FEF9F9"; }} onMouseLeave={e => { e.currentTarget.style.borderLeftColor = "transparent"; e.currentTarget.style.background = "#FFF"; }}><div style={{ fontWeight: 700, fontSize: 13 }}>{q.name}</div><div style={{ fontSize: 11, color: "#999", display: "flex", justifyContent: "space-between", marginTop: 4 }}><span>{q.date}</span><button style={{ background: "none", border: "none", color: "#C8102E", cursor: "pointer", fontSize: 11, fontWeight: 700 }} onClick={e => { e.stopPropagation(); delQ(q.id); }}>Delete</button></div></div>)}
+            savedList.map(q => <div key={q.id} style={{ padding: 14, border: "1px solid #E5E5E5", borderRadius: 6, marginBottom: 8, cursor: "pointer", borderLeft: "3px solid transparent", transition: "all .2s" }} onClick={() => loadQ(q)} onMouseEnter={e => { e.currentTarget.style.borderLeftColor = "#C8102E"; e.currentTarget.style.background = "#FEF9F9"; }} onMouseLeave={e => { e.currentTarget.style.borderLeftColor = "transparent"; e.currentTarget.style.background = "#FFF"; }}><div style={{ fontWeight: 700, fontSize: 13 }}>{q.name}</div><div style={{ fontSize: 11, color: "#999", display: "flex", justifyContent: "space-between", marginTop: 4, gap: 8 }}><span>{q.date}</span><div style={{ display: "flex", gap: 8 }}><button style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 11, fontWeight: 700 }} onClick={e => { e.stopPropagation(); dupQ(q); }}>Duplicate</button><button style={{ background: "none", border: "none", color: "#C8102E", cursor: "pointer", fontSize: 11, fontWeight: 700 }} onClick={e => { e.stopPropagation(); delQ(q.id); }}>Delete</button></div></div></div>)}
         </div>
       )}
 
@@ -310,7 +331,7 @@ export default function App() {
         <div className="nv-card" style={{ background: "#FFF", borderRadius: 6, overflow: "hidden", marginBottom: 16, border: "1px solid #E0E0E0" }}>
           <div style={{ background: "#C8102E", color: "#FFF", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <label style={{ cursor: "pointer" }}>{s.logo ? <div style={{ position: "relative" }}><img src={s.logo} alt="" style={{ maxHeight: 36, borderRadius: 3 }} /><button onClick={e => { e.preventDefault(); set("logo", null); }} style={{ position: "absolute", top: -5, right: -5, width: 14, height: 14, borderRadius: "50%", background: "#000", color: "#FFF", border: "none", cursor: "pointer", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button></div> : <div style={{ border: "2px dashed rgba(255,255,255,.4)", borderRadius: 4, padding: "5px 12px", fontSize: 9, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, opacity: .8 }}><Pic size={12} /> Logo</div>}<input type="file" accept="image/*" hidden onChange={e => handleFile(null, null, "logo", e.target.files[0])} /></label>
+              <label style={{ cursor: "pointer" }}>{s.logo ? <div style={{ position: "relative" }}><img src={s.logo} alt="" className="nv-logo" style={{ height: 36, borderRadius: 3 }} /><button onClick={e => { e.preventDefault(); set("logo", null); }} style={{ position: "absolute", top: -5, right: -5, width: 14, height: 14, borderRadius: "50%", background: "#000", color: "#FFF", border: "none", cursor: "pointer", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button></div> : <div style={{ border: "2px dashed rgba(255,255,255,.4)", borderRadius: 4, padding: "5px 12px", fontSize: 9, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, opacity: .8 }}><Pic size={12} /> Logo</div>}<input type="file" accept="image/*" hidden onChange={e => handleFile(null, null, "logo", e.target.files[0])} /></label>
               <div style={{ fontSize: 9, opacity: .7, lineHeight: 1.5 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -415,7 +436,9 @@ export default function App() {
                 </div>
                 <div style={{ padding: 14 }}>
                   <div tabIndex={0} onPaste={handlePaste("drawing", drw.id, "image")}>
-                    {drw.image ? <DrawingCanvas drw={drw} onAddPin={addPin} onUpdatePin={updatePin} onRemovePin={removePin} onMovePin={movePin} editingPin={editingPin} setEditingPin={setEditingPin} F={F} />
+                    {drw.image ? <DrawingCanvas drw={drw} onAddPin={addPin} onUpdatePin={updatePin} onRemovePin={removePin} onMovePin={movePin} editingPin={editingPin} setEditingPin={setEditingPin} F={F}
+                      canvasView={canvasViews[drw.id] || { zoom: 1, pan: { x: 0, y: 0 } }}
+                      setCanvasView={v => setCanvasViews(prev => ({ ...prev, [drw.id]: v }))} />
                       : <div className="nv-drop" onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")} onDrop={e => { e.currentTarget.classList.remove("over"); handleDrop(e, "drawing", drw.id, "image"); }} onClick={() => drawingRefs.current[drw.id]?.click()} style={{ minHeight: 180, borderRadius: 6, border: "2px dashed #D4D4D4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#F9F9F9" }}><div style={{ textAlign: "center", color: "#CCC", padding: 16 }}><Pic size={36} /><div style={{ fontSize: F.body, fontWeight: 700, marginTop: 8, color: "#BBB" }}>Drop, click, or Ctrl+V</div></div></div>}
                     <input ref={el => { drawingRefs.current[drw.id] = el; }} type="file" accept="image/*" hidden onChange={e => handleFile("drawing", drw.id, "image", e.target.files[0])} />
                   </div>
@@ -454,7 +477,7 @@ export default function App() {
 
       {/* PDF RENDER */}
       <div ref={printRef} style={{ position: "fixed", left: "-9999px", top: 0, width: 780, background: "#FFF", color: "#1A1A1A", fontFamily: "'Barlow',sans-serif", fontSize: 11, lineHeight: 1.4 }}>
-        <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" style={{ maxHeight: 36 }} />}<div style={{ fontSize: 10, opacity: .8, lineHeight: 1.6 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em" }}>QUOTATION</div><div style={{ fontSize: 11, marginTop: 2 }}>Quote: <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
+        <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" className="nv-logo" style={{ height: 36 }} />}<div style={{ fontSize: 10, opacity: .8, lineHeight: 1.6 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em" }}>QUOTATION</div><div style={{ fontSize: 11, marginTop: 2 }}>Quote: <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
         <div style={{ display: "flex", borderBottom: "1px solid #E5E5E5" }}><div style={{ flex: 1, padding: "12px 24px", borderRight: "1px solid #E5E5E5" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Prepared For:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.preparedFor.name}</div><div>{s.preparedFor.address}</div><div>{s.preparedFor.cityProv}</div></div><div style={{ flex: 1, padding: "12px 24px" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Ship To:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.shipTo.name}</div><div>{s.shipTo.address}</div><div>{s.shipTo.cityProv}</div>{s.shipTo.phone && <div>Phone: {s.shipTo.phone}</div>}</div></div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}>{["Customer #", "Carrier", "PO #", "Ship Date", "Salesperson"].map(h => <th key={h} style={{ padding: "5px 10px", textAlign: "left" }}>{h}</th>)}</tr></thead><tbody><tr style={{ borderBottom: "1px solid #E5E5E5", fontSize: 11 }}><td style={{ padding: "5px 10px" }}>{s.customerNo}</td><td style={{ padding: "5px 10px" }}>{s.carrier}</td><td style={{ padding: "5px 10px" }}>{s.poNumber}</td><td style={{ padding: "5px 10px" }}>{s.shipDate}</td><td style={{ padding: "5px 10px" }}>{s.salesperson}</td></tr></tbody></table>
         {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}><div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #C8102E", paddingBottom: 4, marginBottom: 6 }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>{s.showPrices && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}</div>{d.image && <div style={{ position: "relative", display: "inline-block", width: "100%" }}><img src={d.image} alt="" style={{ maxWidth: "100%", maxHeight: 340, objectFit: "contain", border: "1px solid #E5E5E5", borderRadius: 4 }} />{(d.pins || []).map(p => <div key={p.id}><div style={{ position: "absolute", left: `${p.xPct}%`, top: `${p.yPct}%`, width: 16, height: 16, borderRadius: "50%", background: "#C8102E", border: "2px solid #FFF", transform: "translate(-50%,-50%)", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} /><div style={{ position: "absolute", left: `${p.xPct}%`, top: `calc(${p.yPct}% + 12px)`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}><div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700 }}>{p.main}</div>{p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1 }}>{p.sub}</div>}</div></div>)}</div>}{d.notes && <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>NOTE: {d.notes}</div>}</div>)}</div>}
