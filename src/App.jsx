@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import "./styles.css";
 
 /* ═══════════════════════════════════════════════════════════════
    NERVAL QUOTATION GENERATOR v5
@@ -60,24 +61,22 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
   const [panning, setPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [draggingPin, setDraggingPin] = useState(null);
+  const [spaceDown, setSpaceDown] = useState(false);
   const didPanRef = useRef(false);
   const imgRef = useRef(null);
+  const containerRef = useRef(null);
 
-  // Trackpad pinch fires ctrlKey+wheel; mouse scroll fires plain wheel
-  const handleWheel = e => {
-    if (e.ctrlKey || e.metaKey) {
-      // Pinch-to-zoom (trackpad) or Ctrl+scroll (mouse)
-      e.preventDefault();
-      setZoom(z => Math.max(0.25, Math.min(5, z + (e.deltaY > 0 ? -0.08 : 0.08))));
-    } else {
-      // Plain mouse scroll — also zoom
-      e.preventDefault();
-      setZoom(z => Math.max(0.25, Math.min(5, z + (e.deltaY > 0 ? -0.15 : 0.15))));
-    }
-  };
+  // Spacebar hold detection for panning
+  useEffect(() => {
+    const onKeyDown = (e) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); setSpaceDown(true); } };
+    const onKeyUp = (e) => { if (e.code === "Space") { setSpaceDown(false); } };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
+  }, []);
 
   const handleMouseDown = e => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    if (e.button === 1 || (e.button === 0 && spaceDown)) {
       e.preventDefault(); e.stopPropagation();
       setPanning(true); didPanRef.current = false;
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
@@ -102,7 +101,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
 
   const handleImgClick = e => {
     if (didPanRef.current || draggingPin) return;
-    if (e.altKey) return; // don't place pin on alt+click
+    if (spaceDown) return; // don't place pin while panning
     const img = imgRef.current; if (!img) return;
     const rect = img.getBoundingClientRect();
     const xPct = ((e.clientX - rect.left) / rect.width) * 100;
@@ -119,10 +118,11 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
         <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}><ZO size={12} /></button>
         <button className="nv-btn" style={{ padding: "4px 8px", fontSize: 10 }} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><Rst size={12} /></button>
         <span style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{Math.round(zoom * 100)}%</span>
-        <span style={{ fontSize: 9, color: "#BBB", marginLeft: 4 }}>Scroll/pinch=zoom · Alt+drag=pan · Click=pin · Drag pin=move</span>
+        <span style={{ fontSize: 9, color: "#BBB", marginLeft: 4 }}>Space+drag=pan · Click=pin · Drag pin=move</span>
       </div>
-      <div onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-        style={{ width: "100%", height: 460, overflow: "hidden", borderRadius: 6, border: "1px solid #E5E5E5", background: "#F0F0F0", cursor: draggingPin ? "grabbing" : panning ? "grabbing" : "crosshair", position: "relative", touchAction: "none" }}>
+      <div onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+        className="nv-canvas-viewport"
+        style={{ cursor: draggingPin ? "grabbing" : panning ? "grabbing" : spaceDown ? "grab" : "crosshair" }}>
         <div style={{ transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`, transformOrigin: "center center", position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "relative", display: "inline-block" }}>
             <img ref={imgRef} src={drw.image} alt="" onClick={handleImgClick} style={{ maxWidth: "100%", maxHeight: 440, objectFit: "contain", display: "block", userSelect: "none" }} draggable={false} />
@@ -131,13 +131,12 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
                 {/* Draggable pin dot */}
                 <div onMouseDown={e => startPinDrag(e, pin.id)}
                   onClick={e => { e.stopPropagation(); if (!draggingPin) setEditingPin(editingPin === pin.id ? null : pin.id); }}
-                  style={{ width: 22, height: 22, borderRadius: "50%", background: draggingPin === pin.id ? "#FFD700" : "#C8102E", border: "3px solid #FFF", boxShadow: "0 2px 8px rgba(0,0,0,.4)", cursor: draggingPin === pin.id ? "grabbing" : "grab", transform: "translate(-50%,-50%)", transition: draggingPin ? "none" : "transform .15s" }}
-                  onMouseEnter={e => { if (!draggingPin) e.currentTarget.style.transform = "translate(-50%,-50%) scale(1.3)"; }}
-                  onMouseLeave={e => { if (!draggingPin) e.currentTarget.style.transform = "translate(-50%,-50%)"; }} />
+                  className={`nv-pin-dot ${draggingPin === pin.id ? 'dragging' : ''}`}
+                  style={{ background: draggingPin === pin.id ? undefined : "#C8102E" }} />
                 {/* Label */}
                 <div style={{ position: "absolute", left: "50%", top: 16, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap", pointerEvents: "none", zIndex: 11 }}>
-                  <div style={{ background: "rgba(200,16,46,.92)", color: "#FFF", padding: "3px 8px", borderRadius: 4, fontSize: Math.max(9, F.small), fontWeight: 700, lineHeight: 1.2, boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>{pin.main}</div>
-                  {pin.sub && <div style={{ background: "rgba(0,0,0,.75)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: Math.max(7, F.small - 2), marginTop: 2, lineHeight: 1.2 }}>{pin.sub}</div>}
+                  <div className="nv-pin-label-main" style={{ fontSize: Math.max(9, F.small) }}>{pin.main}</div>
+                  {pin.sub && <div className="nv-pin-label-sub" style={{ fontSize: Math.max(7, F.small - 2) }}>{pin.sub}</div>}
                 </div>
                 {editingPin === pin.id && (
                   <div style={{ position: "absolute", left: "50%", top: 55, transform: "translateX(-50%)", zIndex: 30, background: "#FFF", border: "1px solid #E5E5E5", borderRadius: 8, padding: 12, width: 220, boxShadow: "0 8px 24px rgba(0,0,0,.2)", pointerEvents: "auto" }} onClick={e => e.stopPropagation()}>
@@ -155,7 +154,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
           </div>
         </div>
       </div>
-      <div style={{ position: "absolute", bottom: 14, right: 14, background: "rgba(0,0,0,.55)", color: "#FFF", padding: "4px 10px", borderRadius: 4, fontSize: 9, fontWeight: 600, pointerEvents: "none" }}><Pin size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} /> Click=pin · Drag=move</div>
+      <div style={{ position: "absolute", bottom: 14, right: 14, background: "rgba(0,0,0,.55)", color: "#FFF", padding: "4px 10px", borderRadius: 4, fontSize: 9, fontWeight: 600, pointerEvents: "none" }}><Pin size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} /> Click=pin · Drag=move · Space+drag=pan</div>
     </div>
   );
 }
@@ -260,55 +259,8 @@ export default function App() {
   /* ═══ RENDER ═══ */
   return (
     <div style={{ fontFamily: "'Barlow',sans-serif", background: "#F0F0F0", minHeight: "100vh", color: "#1A1A1A" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Barlow+Condensed:wght@600;700;800;900&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}body{margin:0}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes slideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
-        @keyframes toastPop{from{opacity:0;transform:translate(-50%,12px) scale(.95)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
-        .nv-card{animation:fadeUp .3s ease-out both}
-        .nv-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:3px;border:1px solid #D4D4D4;background:#FFF;color:#444;font-size:11px;font-weight:700;font-family:'Barlow',sans-serif;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
-        .nv-btn:hover{background:#F5F5F5;border-color:#999;transform:translateY(-1px)}
-        .nv-btn-red{background:#C8102E;color:#FFF;border-color:#C8102E}.nv-btn-red:hover{background:#A30D24}
-        .nv-btn-dark{background:#2D2D2D;color:#FFF;border-color:#2D2D2D}.nv-btn-dark:hover{background:#444}
-        .nv-row:hover{background:#FFF9F9!important}
-        .nv-drop{transition:all .2s}.nv-drop:hover,.nv-drop.over{border-color:#C8102E!important;background:#FEF2F2!important}
-        input:focus,select:focus,textarea:focus{border-color:#C8102E!important;box-shadow:0 0 0 2px rgba(200,16,46,.08)}
-        .nv-toggle{position:relative;width:44px;height:24px;border-radius:12px;background:#D4D4D4;cursor:pointer;transition:background .2s;border:none;padding:0}
-        .nv-toggle.on{background:#C8102E}.nv-toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#FFF;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}.nv-toggle.on::after{transform:translateX(20px)}
-        .nv-red-stripe{position:relative}.nv-red-stripe::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#C8102E;border-radius:6px 0 0 6px}
-        .col-resizer{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:5;background:transparent;transition:background .15s}
-        .col-resizer:hover,.col-resizer.active{background:rgba(255,255,255,.4)}
-        /* Visible input borders in table cells */
-        .nv-cell-input{width:100%;border:1px solid #E8E8E8;background:#FFF;border-radius:3px;font-family:'Barlow',sans-serif;outline:none;transition:border-color .15s;box-sizing:border-box}
-        .nv-cell-input:focus{border-color:#C8102E!important;box-shadow:0 0 0 2px rgba(200,16,46,.08)}
-        .nv-cell-input:hover{border-color:#CCC}
-        /* Auto-grow textarea */
-        .nv-auto-grow{overflow:hidden;resize:none;min-height:32px;field-sizing:content}
-        /* Header column vertical dividers */
-        .nv-hdr-cell{border-right:1px solid rgba(255,255,255,.2);position:relative;user-select:none}
-        .nv-table-scroll{overflow-x:auto;overflow-y:visible}
-        .nv-table-scroll::-webkit-scrollbar{height:6px}
-        .nv-table-scroll::-webkit-scrollbar-track{background:#F0F0F0;border-radius:3px}
-        .nv-table-scroll::-webkit-scrollbar-thumb{background:#CCC;border-radius:3px}
-        .nv-table-scroll::-webkit-scrollbar-thumb:hover{background:#999}
-        /* Mobile: stack items as labeled cards */
-        @media(max-width:768px){
-          .nv-resp-2{grid-template-columns:1fr!important}
-          .nv-resp-5{grid-template-columns:1fr 1fr!important}
-          .nv-topbar-actions{flex-wrap:wrap;justify-content:center}
-          .nv-desk-header{display:none!important}
-          .nv-mobile-card{display:flex!important;flex-direction:column!important;padding:12px!important;gap:0!important;grid-template-columns:unset!important;border-left:3px solid #C8102E!important}
-          .nv-mobile-card>*{width:100%!important;min-width:0!important}
-          .nv-mob-label{display:flex!important}
-          .nv-mob-field{display:grid!important;grid-template-columns:80px 1fr!important;align-items:center!important;gap:6px!important;padding:4px 0!important}
-          .nv-mob-field-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#C8102E}
-        }
-        @media(min-width:769px){.nv-mob-label{display:none!important}}
-        @media print{.no-print{display:none!important}body{background:#fff!important}}
-      `}</style>
 
-      {toast && <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "#2D2D2D", color: "#FFF", padding: "10px 28px", borderRadius: 6, fontSize: 13, fontWeight: 700, boxShadow: "0 8px 32px rgba(0,0,0,.25)", animation: "toastPop .3s ease-out", borderLeft: "4px solid #C8102E" }}>{toast}</div>}
+      {toast && <div className="nv-toast">{toast}</div>}
 
       {/* TOP BAR */}
       <div className="no-print" style={{ background: "#FFF", borderBottom: "3px solid #C8102E", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,.06)" }}>
@@ -358,7 +310,7 @@ export default function App() {
         <div className="nv-card" style={{ background: "#FFF", borderRadius: 6, overflow: "hidden", marginBottom: 16, border: "1px solid #E0E0E0" }}>
           <div style={{ background: "#C8102E", color: "#FFF", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <label style={{ cursor: "pointer" }}>{s.logo ? <div style={{ position: "relative" }}><img src={s.logo} alt="" style={{ height: 36, borderRadius: 3 }} /><button onClick={e => { e.preventDefault(); set("logo", null); }} style={{ position: "absolute", top: -5, right: -5, width: 14, height: 14, borderRadius: "50%", background: "#000", color: "#FFF", border: "none", cursor: "pointer", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button></div> : <div style={{ border: "2px dashed rgba(255,255,255,.4)", borderRadius: 4, padding: "5px 12px", fontSize: 9, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, opacity: .8 }}><Pic size={12} /> Logo</div>}<input type="file" accept="image/*" hidden onChange={e => handleFile(null, null, "logo", e.target.files[0])} /></label>
+              <label style={{ cursor: "pointer" }}>{s.logo ? <div style={{ position: "relative" }}><img src={s.logo} alt="" style={{ maxHeight: 36, borderRadius: 3 }} /><button onClick={e => { e.preventDefault(); set("logo", null); }} style={{ position: "absolute", top: -5, right: -5, width: 14, height: 14, borderRadius: "50%", background: "#000", color: "#FFF", border: "none", cursor: "pointer", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button></div> : <div style={{ border: "2px dashed rgba(255,255,255,.4)", borderRadius: 4, padding: "5px 12px", fontSize: 9, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, opacity: .8 }}><Pic size={12} /> Logo</div>}<input type="file" accept="image/*" hidden onChange={e => handleFile(null, null, "logo", e.target.files[0])} /></label>
               <div style={{ fontSize: 9, opacity: .7, lineHeight: 1.5 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -453,7 +405,7 @@ export default function App() {
         {/* DRAWINGS */}
         {tab === "drawings" && (
           <div className="nv-card" style={{ background: "#FFF", borderRadius: "0 6px 6px 6px", border: "1px solid #E0E0E0", padding: 16, marginBottom: 16 }}>
-            <p style={{ fontSize: F.body, color: "#999", marginBottom: 14, lineHeight: 1.5 }}><strong>Scroll</strong>=zoom · <strong>Alt+drag</strong>=pan · <strong>Click</strong>=pin · <strong>Drag pin</strong>=move</p>
+            <p style={{ fontSize: F.body, color: "#999", marginBottom: 14, lineHeight: 1.5 }}>Use <strong>+/−</strong> buttons to zoom · <strong>Space+drag</strong> to pan · <strong>Click</strong> to place pin · <strong>Drag pin</strong> to move</p>
             {s.drawings.length === 0 && <div style={{ textAlign: "center", padding: "40px 0", color: "#D4D4D4" }}><Lay size={44} /><div style={{ marginTop: 12, fontSize: F.subheader, fontWeight: 700, color: "#BBB" }}>No drawings yet</div></div>}
             {s.drawings.map((drw, idx) => (
               <div key={drw.id} style={{ border: "1px solid #E5E5E5", borderRadius: 8, overflow: "visible", marginBottom: 14, borderLeft: "4px solid #C8102E" }}>
@@ -502,7 +454,7 @@ export default function App() {
 
       {/* PDF RENDER */}
       <div ref={printRef} style={{ position: "fixed", left: "-9999px", top: 0, width: 780, background: "#FFF", color: "#1A1A1A", fontFamily: "'Barlow',sans-serif", fontSize: 11, lineHeight: 1.4 }}>
-        <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" style={{ height: 36 }} />}<div style={{ fontSize: 10, opacity: .8, lineHeight: 1.6 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em" }}>QUOTATION</div><div style={{ fontSize: 11, marginTop: 2 }}>Quote: <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
+        <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" style={{ maxHeight: 36 }} />}<div style={{ fontSize: 10, opacity: .8, lineHeight: 1.6 }}><div>Tel: 780-452-1111 · Fax: 780-452-5775</div><div>1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5</div></div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em" }}>QUOTATION</div><div style={{ fontSize: 11, marginTop: 2 }}>Quote: <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
         <div style={{ display: "flex", borderBottom: "1px solid #E5E5E5" }}><div style={{ flex: 1, padding: "12px 24px", borderRight: "1px solid #E5E5E5" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Prepared For:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.preparedFor.name}</div><div>{s.preparedFor.address}</div><div>{s.preparedFor.cityProv}</div></div><div style={{ flex: 1, padding: "12px 24px" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Ship To:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.shipTo.name}</div><div>{s.shipTo.address}</div><div>{s.shipTo.cityProv}</div>{s.shipTo.phone && <div>Phone: {s.shipTo.phone}</div>}</div></div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}>{["Customer #", "Carrier", "PO #", "Ship Date", "Salesperson"].map(h => <th key={h} style={{ padding: "5px 10px", textAlign: "left" }}>{h}</th>)}</tr></thead><tbody><tr style={{ borderBottom: "1px solid #E5E5E5", fontSize: 11 }}><td style={{ padding: "5px 10px" }}>{s.customerNo}</td><td style={{ padding: "5px 10px" }}>{s.carrier}</td><td style={{ padding: "5px 10px" }}>{s.poNumber}</td><td style={{ padding: "5px 10px" }}>{s.shipDate}</td><td style={{ padding: "5px 10px" }}>{s.salesperson}</td></tr></tbody></table>
         {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}><div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #C8102E", paddingBottom: 4, marginBottom: 6 }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>{s.showPrices && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}</div>{d.image && <div style={{ position: "relative", display: "inline-block", width: "100%" }}><img src={d.image} alt="" style={{ maxWidth: "100%", maxHeight: 340, objectFit: "contain", border: "1px solid #E5E5E5", borderRadius: 4 }} />{(d.pins || []).map(p => <div key={p.id}><div style={{ position: "absolute", left: `${p.xPct}%`, top: `${p.yPct}%`, width: 16, height: 16, borderRadius: "50%", background: "#C8102E", border: "2px solid #FFF", transform: "translate(-50%,-50%)", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} /><div style={{ position: "absolute", left: `${p.xPct}%`, top: `calc(${p.yPct}% + 12px)`, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}><div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700 }}>{p.main}</div>{p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1 }}>{p.sub}</div>}</div></div>)}</div>}{d.notes && <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>NOTE: {d.notes}</div>}</div>)}</div>}
