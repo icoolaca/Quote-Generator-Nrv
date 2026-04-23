@@ -10,7 +10,7 @@ const today = () => new Date().toISOString().split("T")[0];
 const fmt = (n, cur = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: cur, minimumFractionDigits: 2 }).format(n);
 const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "AUD"];
 const emptyItem = () => ({ id: uid(), itemNo: "", qty: 1, uom: "ea", description: "", netPrice: 0, image: null });
-const emptyDrawing = () => ({ id: uid(), image: null, title: "", totalPrice: 0, notes: "", pins: [] });
+const emptyDrawing = () => ({ id: uid(), image: null, title: "", totalPrice: 0, notes: "", pins: [], showPrice: true });
 const emptyPin = (xPct, yPct) => ({ id: uid(), xPct, yPct, main: "Spec Title", sub: "Details here" });
 
 const DF = { header: 28, subheader: 14, body: 12, small: 10, pinSize: 22, contact: 11, logoH: 36 };
@@ -274,7 +274,7 @@ export default function App() {
 
   const calc = useMemo(() => {
     const iS = s.items.reduce((a, i) => a + i.qty * i.netPrice, 0);
-    const dS = s.drawings.reduce((a, d) => a + (d.totalPrice || 0), 0);
+    const dS = s.drawings.reduce((a, d) => a + (d.showPrice !== false ? (d.totalPrice || 0) : 0), 0);
     const sub = iS + dS, fr = Number(s.freight) || 0;
     const gst = (sub + fr) * (s.gstRate / 100), pst = (sub + fr) * (s.pstRate / 100);
     const total = sub + fr + gst + pst, bal = total - (Number(s.deposit) || 0);
@@ -537,9 +537,13 @@ export default function App() {
             {s.drawings.length === 0 && <div style={{ textAlign: "center", padding: "40px 0", color: "#D4D4D4" }}><Lay size={44} /><div style={{ marginTop: 12, fontSize: F.subheader, fontWeight: 700, color: "#BBB" }}>No drawings yet</div></div>}
             {s.drawings.map((drw, idx) => (
               <div key={drw.id} style={{ border: "1px solid #E5E5E5", borderRadius: 8, overflow: "visible", marginBottom: 14, borderLeft: "4px solid #C8102E" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px", background: "#FAFAFA", borderBottom: "1px solid #F0F0F0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px", background: "#FAFAFA", borderBottom: "1px solid #F0F0F0", flexWrap: "wrap", gap: 6 }}>
                   <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: F.subheader, color: "#C8102E", textTransform: "uppercase" }}>Drawing #{idx + 1}</div>
-                  <div style={{ display: "flex", gap: 4 }}>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                    {drw.image && <>
+                      <button onClick={() => drawingRefs.current[drw.id]?.click()} className="nv-btn" style={{ padding: "3px 8px", fontSize: 9 }}><Pic size={11} /> Replace</button>
+                      <button onClick={() => updateDrawing(drw.id, "image", null)} className="nv-btn" style={{ padding: "3px 8px", fontSize: 9 }}><X size={11} /> Clear</button>
+                    </>}
                     <button onClick={() => dupDrawing(drw.id)} className="nv-btn" style={{ padding: "3px 8px", fontSize: 9 }}><Cpy size={11} /> Duplicate</button>
                     <button onClick={() => removeDrawing(drw.id)} className="nv-btn" style={{ padding: "3px 8px", fontSize: 9 }}><Trash size={11} /> Remove</button>
                   </div>
@@ -554,7 +558,17 @@ export default function App() {
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }} className="nv-resp-2">
                     <Inp label="Title / Room" value={drw.title} onChange={v => updateDrawing(drw.id, "title", v)} placeholder="Kitchen Plan" />
-                    <div><label style={{ display: "block", fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888", marginBottom: 4 }}>Total Price</label><input type="number" min="0" step="0.01" value={drw.totalPrice} onChange={e => updateDrawing(drw.id, "totalPrice", Math.max(0, Number(e.target.value)))} style={{ width: "100%", padding: "7px 8px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: F.subheader, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none", boxSizing: "border-box" }} /><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: F.header * 0.7, color: "#C8102E", marginTop: 3 }}>{fmt(drw.totalPrice || 0, s.currency)}</div></div>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <label style={{ fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888" }}>Total Price</label>
+                        <button className={`nv-toggle ${drw.showPrice !== false ? "on" : ""}`} style={{ transform: "scale(0.7)", transformOrigin: "right center" }}
+                          onClick={() => updateDrawing(drw.id, "showPrice", !(drw.showPrice !== false))} />
+                      </div>
+                      {drw.showPrice !== false && <>
+                        <input type="number" min="0" step="0.01" value={drw.totalPrice} onChange={e => updateDrawing(drw.id, "totalPrice", Math.max(0, Number(e.target.value)))} style={{ width: "100%", padding: "7px 8px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: F.subheader, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
+                        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: F.header * 0.7, color: "#C8102E", marginTop: 3 }}>{fmt(drw.totalPrice || 0, s.currency)}</div>
+                      </>}
+                    </div>
                     <div><label style={{ display: "block", fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888", marginBottom: 4 }}>Notes</label><textarea value={drw.notes} onChange={e => updateDrawing(drw.id, "notes", e.target.value)} placeholder="Waterfall edge..." rows={3} style={{ width: "100%", padding: "7px 8px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: F.body, fontFamily: "'Barlow',sans-serif", color: "#555", outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.4 }} /></div>
                   </div>
                   {(drw.pins || []).length > 0 && <div style={{ marginTop: 10, padding: "8px 10px", background: "#F9F9F9", borderRadius: 6, border: "1px solid #F0F0F0" }}><div style={{ fontSize: F.small, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 4 }}>{(drw.pins || []).length} Pin{(drw.pins || []).length > 1 ? "s" : ""}</div><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{(drw.pins || []).map(p => <div key={p.id} style={{ background: "#FFF", border: "1px solid #E5E5E5", borderRadius: 4, padding: "3px 6px", fontSize: F.small, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }} onClick={() => setEditingPin(editingPin === p.id ? null : p.id)}><div style={{ width: 7, height: 7, borderRadius: "50%", background: "#C8102E" }} /><span style={{ fontWeight: 700 }}>{p.main}</span><span style={{ color: "#999" }}>— {p.sub}</span></div>)}</div></div>}
@@ -575,7 +589,7 @@ export default function App() {
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}><label style={{ fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888" }}>Currency</label><select value={s.currency} onChange={e => set("currency", e.target.value)} style={{ border: "1px solid #D4D4D4", borderRadius: 3, padding: "2px 6px", fontSize: F.body, fontFamily: "'Barlow',sans-serif", outline: "none", cursor: "pointer", fontWeight: 600 }}>{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
           </div>
           <div className="nv-card nv-red-stripe" style={{ background: "#FFF", borderRadius: 6, border: "1px solid #E0E0E0", padding: "16px 16px 16px 22px", alignSelf: "flex-start" }}>
-            {s.drawings.map(d => d.totalPrice > 0 ? <SR key={d.id} l={d.title || "Drawing"} v={fmt(d.totalPrice, s.currency)} F={F} /> : null)}
+            {s.drawings.map(d => (d.showPrice !== false && d.totalPrice > 0) ? <SR key={d.id} l={d.title || "Drawing"} v={fmt(d.totalPrice, s.currency)} F={F} /> : null)}
             {calc.iS > 0 && <SR l="Items" v={fmt(calc.iS, s.currency)} F={F} />}<SR l="SUBTOTAL" v={fmt(calc.sub, s.currency)} b F={F} />
             {s.showExtras && <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}><span style={{ fontSize: F.body, color: "#777", fontWeight: 600 }}>FREIGHT</span><input type="number" min="0" step="0.01" value={s.freight} onChange={e => set("freight", Math.max(0, Number(e.target.value)))} style={{ width: 80, textAlign: "right", border: "1px solid #E5E5E5", borderRadius: 3, padding: "3px 5px", fontSize: F.body, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none" }} /></div>
@@ -599,7 +613,7 @@ export default function App() {
         {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
           <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #C8102E", paddingBottom: 4, marginBottom: 6 }}>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>
-            {s.priceMode !== 'hidden' && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}
+            {s.priceMode !== 'hidden' && d.showPrice !== false && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}
           </div>
           {d.image && <div style={{ position: "relative", display: "inline-block" }}>
             <img src={d.image} alt="" style={{ maxWidth: 730, maxHeight: 340, display: "block", border: "1px solid #E5E5E5", borderRadius: 4 }} />
