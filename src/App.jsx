@@ -155,7 +155,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
                   className={`nv-pin-dot ${draggingPin === pin.id ? 'dragging' : ''}`}
                   style={{ width: F.pinSize || 22, height: F.pinSize || 22, background: draggingPin === pin.id ? undefined : "#C8102E" }} />
                 {/* Label */}
-                <div style={{ position: "absolute", left: "50%", top: 16, transform: "translateX(-50%)", textAlign: "left", whiteSpace: "pre-wrap", pointerEvents: "none", zIndex: 11, maxWidth: 200 }}>
+                <div style={{ position: "absolute", left: "50%", top: 16, transform: "translateX(-50%)", textAlign: "left", whiteSpace: "pre-line", pointerEvents: "none", zIndex: 11, maxWidth: 200 }}>
                   <div className="nv-pin-label-main" style={{ fontSize: Math.max(9, F.small) }}>{pin.main}</div>
                   {pin.sub && <div className="nv-pin-label-sub" style={{ fontSize: Math.max(7, F.small - 2) }}>{pin.sub}</div>}
                 </div>
@@ -600,9 +600,9 @@ export default function App() {
             <div style={{ position: "absolute", inset: 0 }}>
               {(d.pins || []).map(p => <div key={p.id} style={{ position: "absolute", left: `${p.xPct}%`, top: `${p.yPct}%` }}>
                 <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#C8102E", border: "2px solid #FFF", transform: "translate(-50%,-50%)", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
-                <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%)", textAlign: "left", whiteSpace: "pre-wrap", maxWidth: 180 }}>
-                  <div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700, whiteSpace: "pre-wrap" }}>{p.main}</div>
-                  {p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1, whiteSpace: "pre-wrap" }}>{p.sub}</div>}
+                <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%)", textAlign: "left", whiteSpace: "pre-line", maxWidth: 180 }}>
+                  <div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700, whiteSpace: "pre-line" }}>{p.main}</div>
+                  {p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1, whiteSpace: "pre-line" }}>{p.sub}</div>}
                 </div>
               </div>)}
             </div>
