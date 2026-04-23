@@ -155,7 +155,7 @@ function DrawingCanvas({ drw, onAddPin, onUpdatePin, onRemovePin, onMovePin, edi
                   className={`nv-pin-dot ${draggingPin === pin.id ? 'dragging' : ''}`}
                   style={{ width: F.pinSize || 22, height: F.pinSize || 22, background: draggingPin === pin.id ? undefined : "#C8102E" }} />
                 {/* Label */}
-                <div style={{ position: "absolute", left: "50%", top: 16, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "pre-wrap", pointerEvents: "none", zIndex: 11, maxWidth: 180 }}>
+                <div style={{ position: "absolute", left: "50%", top: 16, transform: "translateX(-50%)", textAlign: "left", whiteSpace: "pre-wrap", pointerEvents: "none", zIndex: 11, maxWidth: 200 }}>
                   <div className="nv-pin-label-main" style={{ fontSize: Math.max(9, F.small) }}>{pin.main}</div>
                   {pin.sub && <div className="nv-pin-label-sub" style={{ fontSize: Math.max(7, F.small - 2) }}>{pin.sub}</div>}
                 </div>
@@ -310,7 +310,7 @@ export default function App() {
   // Fixed: LN(3%), qty, uom, netPrice, extAmt, actions(5%)
   const gridCols = useMemo(() => {
     const fc = FIXED_COLS;
-    const fixedTotal = 3 + fc.qty + fc.uom + (s.priceMode !== 'hidden' ? fc.netPrice : 0) + (s.priceMode === 'both' ? fc.extAmt : 0) + 5;
+    const fixedTotal = 3 + fc.qty + fc.uom + (s.priceMode === 'both' ? fc.netPrice : 0) + (s.priceMode !== 'hidden' ? fc.extAmt : 0) + 5;
     const flexTotal = 100 - fixedTotal;
     // User ratios for the 3 adjustable columns
     const rawImg = C.img, rawItemNo = C.itemNo, rawDesc = C.desc;
@@ -318,9 +318,9 @@ export default function App() {
     const img = (rawImg / rawSum) * flexTotal;
     const itemNo = (rawItemNo / rawSum) * flexTotal;
     const desc = (rawDesc / rawSum) * flexTotal;
-    return `3% ${img.toFixed(1)}% ${itemNo.toFixed(1)}% ${fc.qty}% ${fc.uom}% ${desc.toFixed(1)}%` + (s.priceMode !== 'hidden' ? ` ${fc.netPrice}%` : '') + (s.priceMode === 'both' ? ` ${fc.extAmt}%` : '') + ' 5%';
+    return `3% ${img.toFixed(1)}% ${itemNo.toFixed(1)}% ${fc.qty}% ${fc.uom}% ${desc.toFixed(1)}%` + (s.priceMode === 'both' ? ` ${fc.netPrice}%` : '') + (s.priceMode !== 'hidden' ? ` ${fc.extAmt}%` : '') + ' 5%';
   }, [C, s.priceMode]);
-  const colDefs = useMemo(() => { const b = [{ k: 'img', l: 'Img' }, { k: 'itemNo', l: 'Item No' }, { k: 'qty', l: 'Qty' }, { k: 'uom', l: 'UOM' }, { k: 'desc', l: 'Description' }]; if (s.priceMode !== 'hidden') b.push({ k: 'netPrice', l: 'Net Price' }); if (s.priceMode === 'both') b.push({ k: 'extAmt', l: 'Ext Amt' }); return b; }, [s.priceMode]);
+  const colDefs = useMemo(() => { const b = [{ k: 'img', l: 'Img' }, { k: 'itemNo', l: 'Item No' }, { k: 'qty', l: 'Qty' }, { k: 'uom', l: 'UOM' }, { k: 'desc', l: 'Description' }]; if (s.priceMode === 'both') b.push({ k: 'netPrice', l: 'Net Price' }); if (s.priceMode !== 'hidden') b.push({ k: 'extAmt', l: 'Ext Amt' }); return b; }, [s.priceMode]);
 
   const handleResizeStart = (ck, e) => {
     e.preventDefault(); const sx = e.clientX, sv2 = C[ck], tw = tableRef.current?.offsetWidth || 1000, pp = tw / 100;
@@ -347,8 +347,8 @@ export default function App() {
         <div className="nv-topbar-actions" style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 6px", borderRight: "1px solid #E5E5E5", marginRight: 2 }}>
             <button className="nv-btn" style={{ padding: "4px 10px", fontSize: 9, color: s.priceMode === "hidden" ? "#C8102E" : "#333" }}
-              onClick={() => set("priceMode", s.priceMode === "both" ? "netOnly" : s.priceMode === "netOnly" ? "hidden" : "both")}>
-              {s.priceMode === "both" ? "All Prices" : s.priceMode === "netOnly" ? "Net Only" : "No Prices"}
+              onClick={() => set("priceMode", s.priceMode === "both" ? "extOnly" : s.priceMode === "extOnly" ? "hidden" : "both")}>
+              {s.priceMode === "both" ? "All Prices" : s.priceMode === "extOnly" ? "Ext Only" : "No Prices"}
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 6px", borderRight: "1px solid #E5E5E5", marginRight: 2 }}>
@@ -506,9 +506,9 @@ export default function App() {
                       {/* Description */}
                       <div style={{ padding: "4px 6px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Description</span></div><textarea value={item.description} onChange={e => { updateItem(item.id, "description", e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} onFocus={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} placeholder="Description..." className="nv-cell-input nv-auto-grow" style={{ fontSize: F.body, lineHeight: 1.4, padding: "5px 6px" }} /></div>
                       {/* Net Price */}
-                      {s.priceMode !== 'hidden' && <div style={{ padding: "6px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Net Price</span></div><input type="number" min="0" step="0.01" value={item.netPrice} onChange={e => updateItem(item.id, "netPrice", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "right", fontWeight: 700, padding: "5px 6px" }} /></div>}
+                      {s.priceMode === 'both' && <div style={{ padding: "6px" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Net Price</span></div><input type="number" min="0" step="0.01" value={item.netPrice} onChange={e => updateItem(item.id, "netPrice", Math.max(0, Number(e.target.value)))} className="nv-cell-input" style={{ fontSize: F.body, textAlign: "right", fontWeight: 700, padding: "5px 6px" }} /></div>}
                       {/* Ext Amt */}
-                      {s.priceMode === 'both' && <div style={{ padding: "6px", display: "flex", flexDirection: "column" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Ext Amt</span></div><div style={{ fontSize: F.body, fontWeight: 800, textAlign: "right", padding: "5px 0" }}>{fmt(item.qty * item.netPrice, s.currency)}</div></div>}
+                      {s.priceMode !== 'hidden' && <div style={{ padding: "6px", display: "flex", flexDirection: "column" }}><div className="nv-mob-label" style={{ marginBottom: 2 }}><span style={{ fontSize: 9, fontWeight: 800, color: "#C8102E", textTransform: "uppercase" }}>Ext Amt</span></div><div style={{ fontSize: F.body, fontWeight: 800, textAlign: "right", padding: "5px 0" }}>{fmt(item.qty * item.netPrice, s.currency)}</div></div>}
                       {/* Actions */}
                       <div style={{ display: "flex", gap: 1, alignItems: "flex-start", justifyContent: "center", paddingTop: 8 }}>
                         <button onClick={() => dupItem(item.id)} title="Duplicate" style={{ background: "none", border: "none", cursor: "pointer", color: "#D4D4D4", padding: 2 }} onMouseEnter={e => { e.currentTarget.style.color = "#2D2D2D"; }} onMouseLeave={e => { e.currentTarget.style.color = "#D4D4D4"; }}><Cpy size={11} /></button>
@@ -600,16 +600,16 @@ export default function App() {
             <div style={{ position: "absolute", inset: 0 }}>
               {(d.pins || []).map(p => <div key={p.id} style={{ position: "absolute", left: `${p.xPct}%`, top: `${p.yPct}%` }}>
                 <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#C8102E", border: "2px solid #FFF", transform: "translate(-50%,-50%)", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }} />
-                <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%)", textAlign: "center", whiteSpace: "nowrap" }}>
-                  <div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700 }}>{p.main}</div>
-                  {p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1 }}>{p.sub}</div>}
+                <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%)", textAlign: "left", whiteSpace: "pre-wrap", maxWidth: 180 }}>
+                  <div style={{ background: "rgba(200,16,46,.9)", color: "#FFF", padding: "2px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700, whiteSpace: "pre-wrap" }}>{p.main}</div>
+                  {p.sub && <div style={{ background: "rgba(0,0,0,.7)", color: "#FFF", padding: "1px 4px", borderRadius: 2, fontSize: 7, marginTop: 1, whiteSpace: "pre-wrap" }}>{p.sub}</div>}
                 </div>
               </div>)}
             </div>
           </div>}
           {d.notes && <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>NOTE: {d.notes}</div>}
         </div>)}</div>}
-        {s.items.some(i => i.itemNo || i.description) && <table style={{ width: "100%", borderCollapse: "collapse", margin: "0 0 12px", fontSize: 10 }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}><th style={{ padding: "5px 8px", textAlign: "left", width: 22 }}>LN</th><th style={{ padding: "5px 6px", width: 50 }}>Img</th><th style={{ padding: "5px 8px" }}>Item No</th><th style={{ padding: "5px 6px", textAlign: "center", width: 28 }}>Qty</th><th style={{ padding: "5px 6px", width: 28 }}>UOM</th><th style={{ padding: "5px 8px" }}>Description</th>{s.priceMode !== 'hidden' && <th style={{ padding: "5px 8px", textAlign: "right" }}>Net Price</th>}{s.priceMode === 'both' && <th style={{ padding: "5px 8px", textAlign: "right" }}>Ext Amt</th>}</tr></thead><tbody>{s.items.map((it, i) => <tr key={it.id} style={{ borderBottom: "1px solid #EEE", background: i % 2 === 0 ? "#FFF" : "#FAFAFA" }}><td style={{ padding: "5px 8px", color: "#999" }}>{i + 1}</td><td style={{ padding: "3px 4px" }}>{it.image && <img src={it.image} alt="" style={{ width: 46, height: 30, objectFit: "contain", borderRadius: 2 }} />}</td><td style={{ padding: "5px 8px", fontWeight: 600 }}>{it.itemNo}</td><td style={{ padding: "5px 6px", textAlign: "center" }}>{it.qty}</td><td style={{ padding: "5px 6px" }}>{it.uom}</td><td style={{ padding: "5px 8px", whiteSpace: "pre-wrap", lineHeight: 1.35 }}>{it.description}</td>{s.priceMode !== 'hidden' && <td style={{ padding: "5px 8px", textAlign: "right" }}>{fmt(it.netPrice, s.currency)}</td>}{s.priceMode === 'both' && <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700 }}>{fmt(it.qty * it.netPrice, s.currency)}</td>}</tr>)}</tbody></table>}
+        {s.items.some(i => i.itemNo || i.description) && <table style={{ width: "100%", borderCollapse: "collapse", margin: "0 0 12px", fontSize: 10 }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}><th style={{ padding: "5px 8px", textAlign: "left", width: 22 }}>LN</th><th style={{ padding: "5px 6px", width: 50 }}>Img</th><th style={{ padding: "5px 8px" }}>Item No</th><th style={{ padding: "5px 6px", textAlign: "center", width: 28 }}>Qty</th><th style={{ padding: "5px 6px", width: 28 }}>UOM</th><th style={{ padding: "5px 8px" }}>Description</th>{s.priceMode === 'both' && <th style={{ padding: "5px 8px", textAlign: "right" }}>Net Price</th>}{s.priceMode !== 'hidden' && <th style={{ padding: "5px 8px", textAlign: "right" }}>Ext Amt</th>}</tr></thead><tbody>{s.items.map((it, i) => <tr key={it.id} style={{ borderBottom: "1px solid #EEE", background: i % 2 === 0 ? "#FFF" : "#FAFAFA" }}><td style={{ padding: "5px 8px", color: "#999" }}>{i + 1}</td><td style={{ padding: "3px 4px" }}>{it.image && <img src={it.image} alt="" style={{ width: 46, height: 30, objectFit: "contain", borderRadius: 2 }} />}</td><td style={{ padding: "5px 8px", fontWeight: 600 }}>{it.itemNo}</td><td style={{ padding: "5px 6px", textAlign: "center" }}>{it.qty}</td><td style={{ padding: "5px 6px" }}>{it.uom}</td><td style={{ padding: "5px 8px", whiteSpace: "pre-wrap", lineHeight: 1.35 }}>{it.description}</td>{s.priceMode === 'both' && <td style={{ padding: "5px 8px", textAlign: "right" }}>{fmt(it.netPrice, s.currency)}</td>}{s.priceMode !== 'hidden' && <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700 }}>{fmt(it.qty * it.netPrice, s.currency)}</td>}</tr>)}</tbody></table>}
         <div style={{ display: "flex", padding: "0 24px 20px", gap: 20 }}><div style={{ flex: 1, fontSize: 9, color: "#777", lineHeight: 1.5 }}>{s.notes && <><div style={{ marginBottom: 4 }}><strong style={{ color: "#333", fontSize: 10 }}>NOTE:</strong></div><div style={{ marginBottom: 8 }}>{s.notes}</div></>}{s.termsNotes && <div style={{ whiteSpace: "pre-wrap", borderTop: "1px solid #EEE", paddingTop: 6, marginTop: 4 }}>{s.termsNotes}</div>}</div><div style={{ width: 220 }}>
           <PR l="SUBTOTAL" v={fmt(calc.sub, s.currency)} b />
           {s.showExtras && <PR l="FREIGHT" v={fmt(calc.fr, s.currency)} />}
