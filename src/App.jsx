@@ -13,7 +13,7 @@ const emptyItem = () => ({ id: uid(), itemNo: "", qty: 1, uom: "ea", description
 const emptyDrawing = () => ({ id: uid(), image: null, title: "", totalPrice: 0, notes: "", pins: [] });
 const emptyPin = (xPct, yPct) => ({ id: uid(), xPct, yPct, main: "Spec Title", sub: "Details here" });
 
-const DF = { header: 28, subheader: 14, body: 12, small: 10, pinSize: 22, contact: 9, logoH: 36 };
+const DF = { header: 28, subheader: 14, body: 12, small: 10, pinSize: 22, contact: 11, logoH: 36 };
 const DC = { img: 15, itemNo: 12, qty: 6, uom: 6, desc: 30, netPrice: 10, extAmt: 12.9 };
 // Only img, itemNo, desc are user-adjustable; rest are fixed
 const FIXED_COLS = { qty: 6, uom: 6, netPrice: 10, extAmt: 12.9 };
@@ -21,6 +21,7 @@ const FIXED_COLS = { qty: 6, uom: 6, netPrice: 10, extAmt: 12.9 };
 const DEFAULT = {
   quoteNumber: "34130", quoteLabel: "#:", date: today(), shipDate: "", currency: "CAD",
   contactInfo: "Tel: 780-452-1111 · Fax: 780-452-5775\n1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5",
+  contactColor: "#FFFFFF",
   preparedFor: { name: "Kanvi Homes", address: "# 101, 1290-91 Street NW", cityProv: "Edmonton, AB T6X 0P2" },
   shipTo: { name: "Kanvi Homes", address: "# 101, 1290-91 Street NW", cityProv: "Edmonton, AB T6X 0P2", phone: "780-439-9000", email: "" },
   customerNo: "Kan9-90", carrier: "BestWay", poNumber: "Element", eta: "SEE TERMS", fob: "NA", salesperson: "",
@@ -374,7 +375,12 @@ export default function App() {
           <FontSlider label="Subheader" path="subheader" value={F.subheader} onChange={v => set("fonts.subheader", v)} />
           <FontSlider label="Body" path="body" value={F.body} onChange={v => set("fonts.body", v)} />
           <FontSlider label="Small" path="small" value={F.small} onChange={v => set("fonts.small", v)} />
-          <FontSlider label="Contact" path="contact" value={F.contact || 9} onChange={v => set("fonts.contact", v)} />
+          <FontSlider label="Contact" path="contact" value={F.contact || 11} onChange={v => set("fonts.contact", v)} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, width: 72, color: "#888", textTransform: "uppercase" }}>Color</span>
+            <input type="color" value={s.contactColor || "#FFFFFF"} onChange={e => set("contactColor", e.target.value)} style={{ width: 32, height: 24, border: "1px solid #D4D4D4", borderRadius: 3, cursor: "pointer", padding: 0 }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#888" }}>{s.contactColor || "#FFFFFF"}</span>
+          </div>
           <FontSlider label="Logo H" path="logoH" value={F.logoH || 36} onChange={v => set("fonts.logoH", v)} />
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 10, marginTop: 14 }}>Pin Annotations</div>
           <FontSlider label="Pin Size" path="pinSize" value={F.pinSize || 22} onChange={v => set("fonts.pinSize", v)} />
@@ -412,9 +418,10 @@ export default function App() {
           <div style={{ background: "#C8102E", color: "#FFF", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <label style={{ cursor: "pointer" }}>{s.logo ? <div style={{ position: "relative" }}><img src={s.logo} alt="" className="nv-logo" style={{ height: F.logoH || 36, borderRadius: 3 }} /><button onClick={e => { e.preventDefault(); set("logo", null); }} style={{ position: "absolute", top: -5, right: -5, width: 14, height: 14, borderRadius: "50%", background: "#000", color: "#FFF", border: "none", cursor: "pointer", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button></div> : <div style={{ border: "2px dashed rgba(255,255,255,.4)", borderRadius: 4, padding: "5px 12px", fontSize: 9, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, opacity: .8 }}><Pic size={12} /> Logo</div>}<input type="file" accept="image/*" hidden onChange={e => handleFile(null, null, "logo", e.target.files[0])} /></label>
-              <div style={{ fontSize: 9, opacity: .7, lineHeight: 1.5 }}>
-                <textarea value={s.contactInfo || ""} onChange={e => set("contactInfo", e.target.value)} rows={2}
-                  style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,.2)", color: "rgba(255,255,255,.8)", fontSize: F.contact || 9, fontFamily: "'Barlow',sans-serif", lineHeight: 1.5, outline: "none", resize: "vertical", width: 260, minHeight: 30 }} />
+              <div style={{ lineHeight: 1.5 }}>
+                <textarea value={s.contactInfo || ""} onChange={e => { set("contactInfo", e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+                  onFocus={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+                  style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,.2)", color: s.contactColor || "#FFF", fontSize: F.contact || 11, fontFamily: "'Barlow',sans-serif", fontWeight: 500, lineHeight: 1.5, outline: "none", resize: "none", overflow: "hidden", width: 260, minHeight: 30 }} />
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -586,7 +593,7 @@ export default function App() {
 
       {/* PDF RENDER */}
       <div ref={printRef} style={{ position: "fixed", left: "-9999px", top: 0, width: 780, background: "#FFF", color: "#1A1A1A", fontFamily: "'Barlow',sans-serif", fontSize: 11, lineHeight: 1.4, visibility: "hidden" }}>
-        <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" className="nv-logo" style={{ height: F.logoH || 36 }} />}<div style={{ fontSize: F.contact || 9, opacity: .8, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{s.contactInfo || "Tel: 780-452-1111 · Fax: 780-452-5775\n1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5"}</div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em", textTransform: "uppercase" }}>{s.docTitle || "QUOTATION"}</div><div style={{ fontSize: 11, marginTop: 2 }}>{s.quoteLabel || "#:"} <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
+        <div style={{ background: "#C8102E", color: "#FFF", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{s.logo && <img src={s.logo} alt="" className="nv-logo" style={{ height: F.logoH || 36 }} />}<div style={{ fontSize: F.contact || 11, color: s.contactColor || "#FFF", fontWeight: 500, lineHeight: 1.6, whiteSpace: "pre-line" }}>{s.contactInfo || "Tel: 780-452-1111 · Fax: 780-452-5775\n1001 Buckingham Dr | Sherwood Park, AB | T8H 0X5"}</div></div><div style={{ textAlign: "right" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: ".08em", textTransform: "uppercase" }}>{s.docTitle || "QUOTATION"}</div><div style={{ fontSize: 11, marginTop: 2 }}>{s.quoteLabel || "#:"} <strong>{s.quoteNumber}</strong> &nbsp; Date: <strong>{s.date}</strong></div></div></div>
         <div style={{ display: "flex", borderBottom: "1px solid #E5E5E5" }}><div style={{ flex: 1, padding: "12px 24px", borderRight: "1px solid #E5E5E5" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Prepared For:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.preparedFor.name}</div><div>{s.preparedFor.address}</div><div>{s.preparedFor.cityProv}</div></div><div style={{ flex: 1, padding: "12px 24px" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Ship To:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.shipTo.name}</div><div>{s.shipTo.address}</div><div>{s.shipTo.cityProv}</div>{s.shipTo.phone && <div>Phone: {s.shipTo.phone}</div>}</div></div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}>{["Customer #", ...(s.showCarrier !== false ? ["Carrier"] : []), "PO #", ...(s.showShipDate !== false ? ["Ship Date"] : []), "Salesperson"].map(h => <th key={h} style={{ padding: "5px 10px", textAlign: "left" }}>{h}</th>)}</tr></thead><tbody><tr style={{ borderBottom: "1px solid #E5E5E5", fontSize: 11 }}><td style={{ padding: "5px 10px" }}>{s.customerNo}</td>{s.showCarrier !== false && <td style={{ padding: "5px 10px" }}>{s.carrier}</td>}<td style={{ padding: "5px 10px" }}>{s.poNumber}</td>{s.showShipDate !== false && <td style={{ padding: "5px 10px" }}>{s.shipDate}</td>}<td style={{ padding: "5px 10px" }}>{s.salesperson}</td></tr></tbody></table>
         {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
