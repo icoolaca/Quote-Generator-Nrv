@@ -274,7 +274,7 @@ export default function App() {
 
   const calc = useMemo(() => {
     const iS = s.items.reduce((a, i) => a + i.qty * i.netPrice, 0);
-    const dS = s.drawings.reduce((a, d) => a + (d.showPrice !== false ? (d.totalPrice || 0) : 0), 0);
+    const dS = s.drawings.reduce((a, d) => a + (d.totalPrice || 0), 0);
     const sub = iS + dS, fr = Number(s.freight) || 0;
     const gst = (sub + fr) * (s.gstRate / 100), pst = (sub + fr) * (s.pstRate / 100);
     const total = sub + fr + gst + pst, bal = total - (Number(s.deposit) || 0);
@@ -589,7 +589,7 @@ export default function App() {
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}><label style={{ fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888" }}>Currency</label><select value={s.currency} onChange={e => set("currency", e.target.value)} style={{ border: "1px solid #D4D4D4", borderRadius: 3, padding: "2px 6px", fontSize: F.body, fontFamily: "'Barlow',sans-serif", outline: "none", cursor: "pointer", fontWeight: 600 }}>{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
           </div>
           <div className="nv-card nv-red-stripe" style={{ background: "#FFF", borderRadius: 6, border: "1px solid #E0E0E0", padding: "16px 16px 16px 22px", alignSelf: "flex-start" }}>
-            {s.drawings.map(d => (d.showPrice !== false && d.totalPrice > 0) ? <SR key={d.id} l={d.title || "Drawing"} v={fmt(d.totalPrice, s.currency)} F={F} /> : null)}
+            {s.drawings.map(d => d.totalPrice > 0 ? <SR key={d.id} l={d.title || "Drawing"} v={fmt(d.totalPrice, s.currency)} F={F} /> : null)}
             {calc.iS > 0 && <SR l="Items" v={fmt(calc.iS, s.currency)} F={F} />}<SR l="SUBTOTAL" v={fmt(calc.sub, s.currency)} b F={F} />
             {s.showExtras && <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}><span style={{ fontSize: F.body, color: "#777", fontWeight: 600 }}>FREIGHT</span><input type="number" min="0" step="0.01" value={s.freight} onChange={e => set("freight", Math.max(0, Number(e.target.value)))} style={{ width: 80, textAlign: "right", border: "1px solid #E5E5E5", borderRadius: 3, padding: "3px 5px", fontSize: F.body, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none" }} /></div>
@@ -611,7 +611,7 @@ export default function App() {
         <div style={{ display: "flex", borderBottom: "1px solid #E5E5E5" }}><div style={{ flex: 1, padding: "12px 24px", borderRight: "1px solid #E5E5E5" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Prepared For:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.preparedFor.name}</div><div>{s.preparedFor.address}</div><div>{s.preparedFor.cityProv}</div></div><div style={{ flex: 1, padding: "12px 24px" }}><div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", color: "#C8102E", marginBottom: 3 }}>Ship To:</div><div style={{ fontWeight: 700, fontSize: 12 }}>{s.shipTo.name}</div><div>{s.shipTo.address}</div><div>{s.shipTo.cityProv}</div>{s.shipTo.phone && <div>Phone: {s.shipTo.phone}</div>}</div></div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr style={{ background: "#C8102E", color: "#FFF", fontSize: 9, fontWeight: 800, textTransform: "uppercase" }}>{["Customer #", ...(s.showCarrier !== false ? ["Carrier"] : []), "PO #", ...(s.showShipDate !== false ? ["Ship Date"] : []), "Salesperson"].map(h => <th key={h} style={{ padding: "5px 10px", textAlign: "left" }}>{h}</th>)}</tr></thead><tbody><tr style={{ borderBottom: "1px solid #E5E5E5", fontSize: 11 }}><td style={{ padding: "5px 10px" }}>{s.customerNo}</td>{s.showCarrier !== false && <td style={{ padding: "5px 10px" }}>{s.carrier}</td>}<td style={{ padding: "5px 10px" }}>{s.poNumber}</td>{s.showShipDate !== false && <td style={{ padding: "5px 10px" }}>{s.shipDate}</td>}<td style={{ padding: "5px 10px" }}>{s.salesperson}</td></tr></tbody></table>
         {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #C8102E", paddingBottom: 4, marginBottom: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 4, marginBottom: 6 }}>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>
             {s.priceMode !== 'hidden' && d.showPrice !== false && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}
           </div>
