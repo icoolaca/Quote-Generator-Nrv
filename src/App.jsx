@@ -558,16 +558,14 @@ export default function App() {
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }} className="nv-resp-2">
                     <Inp label="Title / Room" value={drw.title} onChange={v => updateDrawing(drw.id, "title", v)} placeholder="Kitchen Plan" />
-                    <div>
+                    <div className="drawing-amount" style={{ opacity: drw.showPrice !== false ? 1 : 0.25, transition: "opacity 0.2s" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                        <label style={{ fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888" }}>Total Price</label>
+                        <label style={{ fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888" }}>Amount</label>
                         <button className={`nv-toggle ${drw.showPrice !== false ? "on" : ""}`} style={{ transform: "scale(0.7)", transformOrigin: "right center" }}
                           onClick={() => updateDrawing(drw.id, "showPrice", !(drw.showPrice !== false))} />
                       </div>
-                      {drw.showPrice !== false && <>
-                        <input type="number" min="0" step="0.01" value={drw.totalPrice} onChange={e => updateDrawing(drw.id, "totalPrice", Math.max(0, Number(e.target.value)))} style={{ width: "100%", padding: "7px 8px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: F.subheader, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
-                        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: F.header * 0.7, color: "#C8102E", marginTop: 3 }}>{fmt(drw.totalPrice || 0, s.currency)}</div>
-                      </>}
+                      <input type="number" min="0" step="0.01" value={drw.totalPrice} onChange={e => updateDrawing(drw.id, "totalPrice", Math.max(0, Number(e.target.value)))} style={{ width: "100%", padding: "7px 8px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: F.subheader, fontFamily: "'Barlow',sans-serif", fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
+                      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: F.header * 0.7, color: "#C8102E", marginTop: 3 }}>{fmt(drw.totalPrice || 0, s.currency)}</div>
                     </div>
                     <div><label style={{ display: "block", fontSize: F.small, fontWeight: 700, textTransform: "uppercase", color: "#888", marginBottom: 4 }}>Notes</label><textarea value={drw.notes} onChange={e => updateDrawing(drw.id, "notes", e.target.value)} placeholder="Waterfall edge..." rows={3} style={{ width: "100%", padding: "7px 8px", border: "1px solid #D4D4D4", borderRadius: 4, fontSize: F.body, fontFamily: "'Barlow',sans-serif", color: "#555", outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.4 }} /></div>
                   </div>
