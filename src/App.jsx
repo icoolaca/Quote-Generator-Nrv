@@ -611,7 +611,7 @@ export default function App() {
         {s.drawings.length > 0 && <div style={{ padding: "16px 24px" }}>{s.drawings.map((d, i) => <div key={d.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
           <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 4, marginBottom: 6 }}>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{d.title || `Drawing #${i + 1}`}</div>
-            {s.priceMode !== 'hidden' && d.showPrice !== false && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Total: {fmt(d.totalPrice || 0, s.currency)}</div>}
+            {s.priceMode !== 'hidden' && d.showPrice !== false && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 16, color: "#C8102E" }}>Amount: {fmt(d.totalPrice || 0, s.currency)}</div>}
           </div>
           {d.image && <div style={{ position: "relative", display: "inline-block" }}>
             <img src={d.image} alt="" style={{ maxWidth: 730, maxHeight: 340, display: "block", border: "1px solid #E5E5E5", borderRadius: 4 }} />
